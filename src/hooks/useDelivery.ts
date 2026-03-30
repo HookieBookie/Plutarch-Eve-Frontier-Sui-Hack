@@ -29,6 +29,7 @@ export interface Delivery {
   destinationSsuId: string;
   destinationTribeId: string;
   destinationLabel: string;
+  packageId?: string;
   items: DeliveryItem[];
   collateral: number;
   timerMs: number;
@@ -107,6 +108,7 @@ export function useDeliveryActions(ssuId: string, tribeId: string) {
       destinationTribeId?: string;
       destinationLabel?: string;
       items: DeliveryItem[];
+      packageId?: string;
       collateral?: number;
       timerMs?: number;
     }) => {

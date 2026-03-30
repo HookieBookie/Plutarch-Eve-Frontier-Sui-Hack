@@ -22,6 +22,7 @@ import { useAllocations } from "../hooks/useAllocations";
 import { Select } from "../components/Select";
 import { useTerritoryData } from "../hooks/useTerritoryData";
 import { useDeliveryActions, useDeliveries, useIncomingDeliveries, type DeliveryItem } from "../hooks/useDelivery";
+import { usePackages } from "../hooks/usePackages";
 import { ssuDisplayName, buildSsuLabel, isLikelyAddress, anonSsuName } from "../utils/ssuNames";
 import { useRecipes } from "../hooks/useRecipes";
 import { verifyClaimDigest } from "../utils/verifyClaimDigest";
@@ -812,7 +813,7 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                   return (
                     <div key={d.id} className="goal-card" style={{ borderLeft: "3px solid var(--color-accent)" }}>
                       <div className="goal-header">
-                        <span className="goal-type">📦 Deliver</span>
+                        <span className="goal-type">{d.packageId ? "📦 Package Delivery" : "📦 Deliver"}</span>
                         <span className="goal-desc">
                           From {d.destinationLabel || d.ssuId.slice(0, 10)} → this SSU
                         </span>
@@ -894,7 +895,7 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                   return (
                     <div key={d.id} className="goal-card" style={{ borderLeft: "3px solid var(--color-success, #4caf50)" }}>
                       <div className="goal-header">
-                        <span className="goal-type">📦 Verify Delivery</span>
+                        <span className="goal-type">{d.packageId ? "📦 Verify Package" : "📦 Verify Delivery"}</span>
                         <span className="goal-desc">
                           Courier: {courier.courierName || courier.courierWallet.slice(0, 10)}
                         </span>
@@ -1199,6 +1200,7 @@ function ContractsPanel({
     destinationTribeId?: string;
     destinationLabel?: string;
     collateral?: number;
+    packageId?: string;
   }) => Promise<void>;
 }) {
   useRecipes(); // ensure custom recipes loaded (parity with goal creation in OperationsTab)
@@ -1347,6 +1349,9 @@ function ContractsPanel({
   const [deliveryCollateral, setDeliveryCollateral] = useState(0);
   const [deliveryTimerUnit, setDeliveryTimerUnit] = useState<"h" | "d" | "w">("d");
   const [deliveryTimerVal, setDeliveryTimerVal] = useState(1);
+  const [cDeliveryMode, setCDeliveryMode] = useState<"items" | "package">("items");
+  const [cSelectedPackageId, setCSelectedPackageId] = useState("");
+  const { packages: cAvailablePackages } = usePackages(ssuId, tribeId);
 
   const destinationOptions = territorySSUs.filter((s) => s.ssuId !== ssuId && s.locationGranted);
   const allOtherSsuIds = useMemo(() => territorySSUs.filter((s) => s.ssuId !== ssuId).map((s) => s.ssuId), [territorySSUs, ssuId]);
@@ -1386,6 +1391,25 @@ function ContractsPanel({
   }
   function updateDeliveryItem(idx: number, field: keyof DeliveryItem, val: any) {
     setDeliveryItems((prev) => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it));
+  }
+
+  // Packages available for delivery (created or allocated, not listed/sold/cancelled)
+  const cDeliverablePackages = cAvailablePackages.filter(
+    (p) => p.status === "created" || p.status === "allocated",
+  );
+
+  function cSelectPackageForDelivery(pkgId: string) {
+    setCSelectedPackageId(pkgId);
+    const pkg = cDeliverablePackages.find((p) => p.id === pkgId);
+    if (pkg) {
+      setDeliveryItems(pkg.items.map((pi) => ({
+        typeId: pi.itemTypeId,
+        itemName: pi.itemName,
+        quantity: pi.quantity,
+      })));
+    } else {
+      setDeliveryItems([]);
+    }
   }
 
   // Structure filter state
@@ -1440,6 +1464,7 @@ function ContractsPanel({
       }
 
       const destLabel = ssuNameLookup.get(deliveryDestSsu) ?? deliveryDestSsu.slice(0, 10);
+      const selectedPkg = cDeliveryMode === "package" ? cDeliverablePackages.find((p) => p.id === cSelectedPackageId) : undefined;
       const itemsDesc = deliveryItems.map((it) => `${it.quantity}× ${it.itemName}`).join(", ");
 
       // Deliver contracts use a single mission per item
@@ -1459,7 +1484,9 @@ function ContractsPanel({
         await onCreate({
           id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           type: "Deliver",
-          description: `📦 ${itemsDesc} → ${destLabel}`,
+          description: selectedPkg
+            ? `📦 ${selectedPkg.name} → ${destLabel}`
+            : `📦 ${itemsDesc} → ${destLabel}`,
           budget: cBudget,
           taxPaid: tax,
           visibility: cVisibility,
@@ -1474,12 +1501,15 @@ function ContractsPanel({
           destinationTribeId: tribeId,
           destinationLabel: destLabel,
           collateral: deliveryCollateral,
+          packageId: selectedPkg?.id,
         });
         setShowModal(false);
         setCBudget(0);
         setDeliveryItems([]);
         setDeliveryDestSsu("");
         setDeliveryCollateral(0);
+        setCSelectedPackageId("");
+        setCDeliveryMode("items");
       } catch (e) {
         setCError((e as Error).message);
       } finally {
@@ -1648,6 +1678,55 @@ function ContractsPanel({
                     />
                   </div>
 
+                  {/* Mode toggle: individual items vs package */}
+                  <div className="input-row" style={{ marginTop: "0.5rem", gap: "0.3rem" }}>
+                    <button
+                      className={`side-btn${cDeliveryMode === "items" ? " active" : ""}`}
+                      onClick={() => { setCDeliveryMode("items"); setCSelectedPackageId(""); setDeliveryItems([]); }}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}
+                    >
+                      Individual Items
+                    </button>
+                    <button
+                      className={`side-btn${cDeliveryMode === "package" ? " active" : ""}`}
+                      onClick={() => { setCDeliveryMode("package"); setDeliveryItems([]); }}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}
+                      disabled={cDeliverablePackages.length === 0}
+                      title={cDeliverablePackages.length === 0 ? "No packages available — create one in Packaging tab" : ""}
+                    >
+                      📦 Package
+                    </button>
+                  </div>
+
+                  {cDeliveryMode === "package" && (
+                    <div style={{ marginTop: "0.5rem" }}>
+                      <div className="input-row">
+                        <label style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>Package:</label>
+                        <Select
+                          value={cSelectedPackageId}
+                          onChange={cSelectPackageForDelivery}
+                          options={[
+                            { value: "", label: "— Select package —" },
+                            ...cDeliverablePackages.map((p) => ({
+                              value: p.id,
+                              label: `${p.name}${p.shipType ? ` (${p.shipType})` : ""} — ${p.items.length} items`,
+                            })),
+                          ]}
+                          style={{ flex: 1 }}
+                        />
+                      </div>
+                      {cSelectedPackageId && (
+                        <div style={{ marginTop: "0.3rem", fontSize: "0.75rem", color: "var(--color-text-muted)", padding: "0.3rem 0.5rem", border: "1px solid var(--color-border)", borderRadius: "4px" }}>
+                          <div style={{ fontWeight: 600, marginBottom: "0.2rem" }}>📋 Package manifest:</div>
+                          {deliveryItems.map((item, idx) => (
+                            <div key={idx}>{item.quantity}× {item.itemName}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {cDeliveryMode === "items" && (
                   <div style={{ marginTop: "0.5rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <label style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>Items to deliver:</label>
@@ -1677,6 +1756,7 @@ function ContractsPanel({
                     ))}
                     {deliveryItems.length === 0 && <p className="muted" style={{ fontSize: "0.72rem" }}>No items added yet.</p>}
                   </div>
+                  )}
 
                   <div className="input-row" style={{ marginTop: "0.5rem" }}>
                     <label style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>Collateral ({ticker}):</label>

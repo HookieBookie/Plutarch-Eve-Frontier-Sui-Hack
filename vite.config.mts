@@ -854,6 +854,7 @@ function tribeApiPlugin(tenantId: string): Plugin {
                       destinationSsuId: data.destinationSsuId,
                       destinationTribeId: data.destinationTribeId ?? tribeId,
                       destinationLabel: data.destinationLabel ?? "",
+                      packageId: data.packageId ?? undefined,
                       items: data.deliveryItems,
                       collateral: Number(data.collateral) || 0,
                       timerMs: Number(data.missionDurationMs) || 86_400_000,
@@ -1026,6 +1027,7 @@ function tribeApiPlugin(tenantId: string): Plugin {
                   destinationSsuId: data.destinationSsuId,
                   destinationTribeId: data.destinationTribeId ?? tribeId,
                   destinationLabel: data.destinationLabel ?? "",
+                  packageId: data.packageId ?? undefined,
                   items,
                   collateral: Number(data.collateral) || 0,
                   timerMs: Number(data.timerMs) || 86_400_000,
@@ -1099,6 +1101,28 @@ function tribeApiPlugin(tenantId: string): Plugin {
 
                   // Check if the entire delivery is complete
                   if (isDeliveryFullyDeposited(d.id)) {
+                    // Package manifest verification: if delivery references a package,
+                    // verify ALL manifest items were deposited before marking complete
+                    if (d.packageId) {
+                      const pkg = getPackageById(d.packageId);
+                      if (pkg) {
+                        const allCouriers = getDeliveryCouriers(d.id);
+                        const totalDeposited = new Map<number, number>();
+                        for (const c of allCouriers) {
+                          for (const item of c.itemsDeposited) {
+                            totalDeposited.set(item.typeId, (totalDeposited.get(item.typeId) ?? 0) + item.quantity);
+                          }
+                        }
+                        const manifestMet = pkg.items.every((pi) =>
+                          (totalDeposited.get(pi.itemTypeId) ?? 0) >= pi.quantity,
+                        );
+                        if (!manifestMet) {
+                          // Package manifest not fully satisfied — don't complete yet
+                          return;
+                        }
+                      }
+                    }
+
                     updateDeliveryStatus(d.id, "delivered");
 
                     // Handle rewards

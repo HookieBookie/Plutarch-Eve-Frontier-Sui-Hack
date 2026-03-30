@@ -35,6 +35,7 @@ import { Select } from "../Select";
 import { useSsuInventory, useSsuOnChainNames, type InventoryItem } from "../../hooks/useSsuInventory";
 import { useTerritoryData } from "../../hooks/useTerritoryData";
 import { useDeliveryActions, useIncomingDeliveries, type DeliveryItem } from "../../hooks/useDelivery";
+import { usePackages } from "../../hooks/usePackages";
 import { ssuDisplayName, buildSsuLabel, isLikelyAddress, anonSsuName } from "../../utils/ssuNames";
 import { useCurrentAccount } from "@mysten/dapp-kit-react";
 
@@ -129,10 +130,13 @@ export function OperationsTab({ isOwner }: { isOwner: boolean }) {
   const [deliveryItems, setDeliveryItems] = useState<DeliveryItem[]>([]);
   const [deliveryTimerVal, setDeliveryTimerVal] = useState(1);
   const [deliveryTimerUnit, setDeliveryTimerUnit] = useState<"h" | "d" | "w">("d");
+  const [deliveryMode, setDeliveryMode] = useState<"items" | "package">("items");
+  const [selectedPackageId, setSelectedPackageId] = useState("");
   const { data: ssuInventory } = useSsuInventory(ssuId || undefined);
   const { ssus: territorySSUs } = useTerritoryData(tribeId, account?.address ?? "", ssuId);
   const { createDelivery } = useDeliveryActions(ssuId, tribeId);
   const mainItems: InventoryItem[] = ssuInventory?.mainItems ?? [];
+  const { packages: availablePackages } = usePackages(ssuId, tribeId);
 
   // Fetch on-chain names for all territory SSUs (for re-resolving stale labels)
   const allOtherSsuIds = useMemo(() => territorySSUs.filter((s) => s.ssuId !== ssuId).map((s) => s.ssuId), [territorySSUs, ssuId]);
@@ -165,6 +169,25 @@ export function OperationsTab({ isOwner }: { isOwner: boolean }) {
       value: s.ssuId,
       label: ssuNameLookup.get(s.ssuId) ?? ssuDisplayName(s),
     }));
+
+  // Packages available for delivery (created or allocated, not listed/sold/cancelled)
+  const deliverablePackages = availablePackages.filter(
+    (p) => p.status === "created" || p.status === "allocated",
+  );
+
+  function selectPackageForDelivery(pkgId: string) {
+    setSelectedPackageId(pkgId);
+    const pkg = deliverablePackages.find((p) => p.id === pkgId);
+    if (pkg) {
+      setDeliveryItems(pkg.items.map((pi) => ({
+        typeId: pi.itemTypeId,
+        itemName: pi.itemName,
+        quantity: pi.quantity,
+      })));
+    } else {
+      setDeliveryItems([]);
+    }
+  }
 
   function addDeliveryItem() {
     if (mainItems.length === 0) return;
@@ -256,8 +279,11 @@ export function OperationsTab({ isOwner }: { isOwner: boolean }) {
         : deliveryDestSsu.slice(0, 10) + "…";
       const destGivenName = destSsu ? onChainNames?.get(destSsu.ssuId) : undefined;
       const destLabel = destGivenName ? `${destGivenName} (${destMapLabel})` : destMapLabel;
+      const selectedPkg = deliveryMode === "package" ? deliverablePackages.find((p) => p.id === selectedPackageId) : undefined;
       const itemDescs = deliveryItems.map((i) => `${i.quantity}× ${i.itemName}`).join(", ");
-      const description = `Deliver ${itemDescs} → ${destLabel}`;
+      const description = selectedPkg
+        ? `Deliver 📦 ${selectedPkg.name} → ${destLabel}`
+        : `Deliver ${itemDescs} → ${destLabel}`;
 
       // Create delivery missions — one mission per item
       const missions: Mission[] = deliveryItems.map((item) => ({
@@ -290,12 +316,15 @@ export function OperationsTab({ isOwner }: { isOwner: boolean }) {
         destinationTribeId: tribeId,
         destinationLabel: destLabel,
         items: deliveryItems,
+        packageId: selectedPkg?.id,
         timerMs,
       }).catch((e) => console.error("[delivery] Failed to create:", e));
 
       setExpandedGoals((prev) => new Set(prev).add(id));
       setDeliveryItems([]);
       setDeliveryDestSsu("");
+      setSelectedPackageId("");
+      setDeliveryMode("items");
       setBudget(0);
       setShowCreate(false);
       return;
@@ -426,37 +455,89 @@ export function OperationsTab({ isOwner }: { isOwner: boolean }) {
                 />
               </div>
 
-              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>Items to deliver:</div>
-              {deliveryItems.map((item, idx) => (
-                <div key={idx} className="input-row" style={{ gap: "0.3rem" }}>
-                  <Select
-                    value={String(item.typeId)}
-                    onChange={(v) => {
-                      const typeId = Number(v);
-                      const inv = mainItems.find((m) => m.type_id === typeId);
-                      updateDeliveryItem(idx, { typeId, itemName: inv?.name || `Item #${typeId}` });
-                    }}
-                    options={mainItems.map((m) => ({
-                      value: String(m.type_id),
-                      label: `${m.name || `Item #${m.type_id}`} (${m.quantity} avail)`,
-                    }))}
-                    style={{ flex: 1 }}
-                  />
-                  <input
-                    type="number" min={1}
-                    max={mainItems.find((m) => m.type_id === item.typeId)?.quantity ?? 99999}
-                    value={item.quantity}
-                    onChange={(e) => updateDeliveryItem(idx, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-                    style={{ width: "5rem", textAlign: "center" }}
-                    title="Quantity"
-                  />
-                  <button className="btn-subtle btn-danger" onClick={() => removeDeliveryItem(idx)} style={{ padding: "0.2rem 0.4rem" }}>✕</button>
-                </div>
-              ))}
-              <button className="btn-subtle" onClick={addDeliveryItem} disabled={mainItems.length === 0} style={{ alignSelf: "flex-start" }}>
-                + Add Item
-              </button>
-              {mainItems.length === 0 && <span className="muted" style={{ fontSize: "0.7rem" }}>No items in SSU main inventory</span>}
+              {/* Mode toggle: individual items vs package */}
+              <div className="input-row" style={{ gap: "0.3rem" }}>
+                <button
+                  className={`side-btn${deliveryMode === "items" ? " active" : ""}`}
+                  onClick={() => { setDeliveryMode("items"); setSelectedPackageId(""); setDeliveryItems([]); }}
+                  style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}
+                >
+                  Individual Items
+                </button>
+                <button
+                  className={`side-btn${deliveryMode === "package" ? " active" : ""}`}
+                  onClick={() => { setDeliveryMode("package"); setDeliveryItems([]); }}
+                  style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}
+                  disabled={deliverablePackages.length === 0}
+                  title={deliverablePackages.length === 0 ? "No packages available — create one in Packaging tab" : ""}
+                >
+                  📦 Package
+                </button>
+              </div>
+
+              {deliveryMode === "package" && (
+                <>
+                  <div className="input-row">
+                    <label style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>Package:</label>
+                    <Select
+                      value={selectedPackageId}
+                      onChange={selectPackageForDelivery}
+                      options={[
+                        { value: "", label: "— Select package —" },
+                        ...deliverablePackages.map((p) => ({
+                          value: p.id,
+                          label: `${p.name}${p.shipType ? ` (${p.shipType})` : ""} — ${p.items.length} items`,
+                        })),
+                      ]}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  {selectedPackageId && (
+                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", padding: "0.3rem 0.5rem", border: "1px solid var(--color-border)", borderRadius: "4px" }}>
+                      <div style={{ fontWeight: 600, marginBottom: "0.2rem" }}>📋 Package manifest:</div>
+                      {deliveryItems.map((item, idx) => (
+                        <div key={idx}>{item.quantity}× {item.itemName}</div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {deliveryMode === "items" && (
+                <>
+                  <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>Items to deliver:</div>
+                  {deliveryItems.map((item, idx) => (
+                    <div key={idx} className="input-row" style={{ gap: "0.3rem" }}>
+                      <Select
+                        value={String(item.typeId)}
+                        onChange={(v) => {
+                          const typeId = Number(v);
+                          const inv = mainItems.find((m) => m.type_id === typeId);
+                          updateDeliveryItem(idx, { typeId, itemName: inv?.name || `Item #${typeId}` });
+                        }}
+                        options={mainItems.map((m) => ({
+                          value: String(m.type_id),
+                          label: `${m.name || `Item #${m.type_id}`} (${m.quantity} avail)`,
+                        }))}
+                        style={{ flex: 1 }}
+                      />
+                      <input
+                        type="number" min={1}
+                        max={mainItems.find((m) => m.type_id === item.typeId)?.quantity ?? 99999}
+                        value={item.quantity}
+                        onChange={(e) => updateDeliveryItem(idx, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                        style={{ width: "5rem", textAlign: "center" }}
+                        title="Quantity"
+                      />
+                      <button className="btn-subtle btn-danger" onClick={() => removeDeliveryItem(idx)} style={{ padding: "0.2rem 0.4rem" }}>✕</button>
+                    </div>
+                  ))}
+                  <button className="btn-subtle" onClick={addDeliveryItem} disabled={mainItems.length === 0} style={{ alignSelf: "flex-start" }}>
+                    + Add Item
+                  </button>
+                  {mainItems.length === 0 && <span className="muted" style={{ fontSize: "0.7rem" }}>No items in SSU main inventory</span>}
+                </>
+              )}
 
               <div className="input-row">
                 <label style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>Timer per courier:</label>

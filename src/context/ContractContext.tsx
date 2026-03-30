@@ -119,6 +119,7 @@ interface ContractContextValue {
     destinationTribeId?: string;
     destinationLabel?: string;
     collateral?: number;
+    packageId?: string;
   }) => Promise<void>;
   cancelContract: (contractId: string) => Promise<void>;
   acceptContract: (contractId: string, wallet: string, playerName: string, deposit: number) => Promise<void>;

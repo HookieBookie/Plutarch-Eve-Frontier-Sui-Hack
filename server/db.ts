@@ -3261,6 +3261,7 @@ export interface DeliveryRow {
   destinationSsuId: string;
   destinationTribeId: string;
   destinationLabel: string;
+  packageId?: string;
   items: DeliveryItem[];
   collateral: number;
   timerMs: number;
@@ -3291,6 +3292,7 @@ function mapDeliveryRow(r: any): DeliveryRow {
     destinationSsuId: r.destination_ssu_id ?? r.destinationSsuId,
     destinationTribeId: r.destination_tribe_id ?? r.destinationTribeId,
     destinationLabel: r.destination_label ?? r.destinationLabel ?? "",
+    packageId: r.package_id ?? r.packageId ?? undefined,
     items: JSON.parse(typeof r.items === "string" ? r.items : "[]"),
     collateral: Number(r.collateral ?? 0),
     timerMs: Number(r.timer_ms ?? r.timerMs ?? 86400000),
@@ -3324,6 +3326,7 @@ export function insertDelivery(d: Omit<DeliveryRow, "createdAt">): void {
     destinationSsuId: d.destinationSsuId,
     destinationTribeId: d.destinationTribeId,
     destinationLabel: d.destinationLabel,
+    packageId: d.packageId ?? null,
     items: JSON.stringify(d.items),
     collateral: d.collateral,
     timerMs: d.timerMs,
