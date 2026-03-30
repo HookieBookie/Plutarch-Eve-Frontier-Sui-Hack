@@ -99,6 +99,13 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
   const { data: outgoingDeliveries } = useDeliveries(ssuId || "", tribeId || "");
   const { data: incomingDeliveries } = useIncomingDeliveries(ssuId || "");
 
+  // Look up on-chain names for source SSUs of incoming deliveries
+  const incomingSourceSsuIds = useMemo(
+    () => [...new Set((incomingDeliveries ?? []).map((d) => d.ssuId))],
+    [incomingDeliveries],
+  );
+  const { data: incomingSourceNames } = useSsuOnChainNames(incomingSourceSsuIds);
+
   // Per-mission contributing state
   const [contributing, setContributing] = useState<string | null>(null);
   const [contributeError, setContributeError] = useState<string | null>(null);
@@ -1168,7 +1175,7 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                       <div className="goal-header">
                         <span className="goal-type">{isPackage ? "📦 Package Delivery" : "📦 Deliver"}</span>
                         <span className="goal-desc">
-                          From {d.destinationLabel || d.ssuId.slice(0, 10)} → this SSU
+                          From {incomingSourceNames?.get(d.ssuId) || d.ssuId.slice(0, 10)} → this SSU
                         </span>
                       </div>
                       <div className="rolodex-container">

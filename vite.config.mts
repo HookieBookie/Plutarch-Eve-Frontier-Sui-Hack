@@ -1122,13 +1122,18 @@ function tribeApiPlugin(tenantId: string): Plugin {
                   if (courierDone) {
                     updateCourierStatus(courier.id, "delivered");
                   }
+                  console.log(`[delivery-progress] Delivery ${d.id}: courierDone=${courierDone}, deposited=${JSON.stringify(deposited)}`);
 
                   // Check if the entire delivery is complete
-                  if (isDeliveryFullyDeposited(d.id)) {
+                  const fullyDeposited = isDeliveryFullyDeposited(d.id);
+                  console.log(`[delivery-progress] fullyDeposited=${fullyDeposited}`);
+                  if (fullyDeposited) {
                     // Package manifest verification: if delivery references a package,
                     // verify ALL manifest items were deposited before marking complete
+                    console.log(`[delivery-progress] Delivery ${d.id} fully deposited. packageId=${d.packageId ?? "none"}, destSSU=${d.destinationSsuId}, destTribe=${d.destinationTribeId}`);
                     if (d.packageId) {
                       const pkg = getPackageById(d.packageId);
+                      console.log(`[delivery-progress] Source package lookup: ${pkg ? `found "${pkg.name}" (status=${pkg.status}, ${pkg.items.length} items)` : "NOT FOUND"}`);
                       if (pkg) {
                         const allCouriers = getDeliveryCouriers(d.id);
                         const totalDeposited = new Map<number, number>();
@@ -1140,6 +1145,7 @@ function tribeApiPlugin(tenantId: string): Plugin {
                         const manifestMet = pkg.items.every((pi) =>
                           (totalDeposited.get(pi.itemTypeId) ?? 0) >= pi.quantity,
                         );
+                        console.log(`[delivery-progress] Manifest check: ${manifestMet ? "MET" : "NOT MET"}`, Object.fromEntries(totalDeposited), pkg.items.map((pi) => ({ typeId: pi.itemTypeId, need: pi.quantity })));
                         if (!manifestMet) {
                           // Package manifest not fully satisfied — don't complete yet
                           return;
@@ -1152,6 +1158,7 @@ function tribeApiPlugin(tenantId: string): Plugin {
                     // Recreate package at destination and claim items to corporate storage
                     if (d.packageId && d.destinationSsuId && d.destinationTribeId) {
                       const srcPkg = getPackageById(d.packageId);
+                      console.log(`[delivery-progress] Recreating package at dest: srcPkg=${srcPkg ? `"${srcPkg.name}"` : "null"}`);
                       if (srcPkg) {
                         const destPkgId = `pkg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                         insertPackage(
@@ -1177,7 +1184,10 @@ function tribeApiPlugin(tenantId: string): Plugin {
                         for (const item of srcPkg.items) {
                           addCorporateInventory(d.destinationSsuId, d.destinationTribeId, item.itemTypeId, item.itemName, item.quantity);
                         }
+                        console.log(`[delivery-progress] ✓ Recreated package "${srcPkg.name}" as ${destPkgId} at SSU=${d.destinationSsuId} tribe=${d.destinationTribeId}`);
                       }
+                    } else {
+                      console.log(`[delivery-progress] Skipped package recreation: packageId=${d.packageId ?? "none"}, destSSU=${d.destinationSsuId ?? "none"}, destTribe=${d.destinationTribeId ?? "none"}`);
                     }
 
                     // Handle rewards
