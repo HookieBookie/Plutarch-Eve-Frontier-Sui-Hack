@@ -12,6 +12,7 @@
     "build:utopia": "cross-env VITE_EVE_TENANT=utopia tsc && cross-env VITE_EVE_TENANT=utopia vite build",
     "build:stillness": "cross-env VITE_EVE_TENANT=stillness tsc && cross-env VITE_EVE_TENANT=stillness vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "start": "vite preview --host",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
@@ -27,10 +28,13 @@
     "@radix-ui/react-icons": "^1.3.0",
     "@radix-ui/themes": "^3.2.1",
     "@tanstack/react-query": "^5.80.2",
+    "@vitejs/plugin-react-swc": "^3.10.1",
     "better-sqlite3": "^12.8.0",
     "drizzle-orm": "^0.45.1",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
@@ -38,15 +42,12 @@
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.33.1",
     "@typescript-eslint/parser": "^8.33.1",
-    "@vitejs/plugin-react-swc": "^3.10.1",
     "cross-env": "^10.1.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.17.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
-    "prettier": "^3.5.3",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5"
+    "prettier": "^3.5.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]

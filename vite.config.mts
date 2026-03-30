@@ -165,9 +165,7 @@ function tribeApiPlugin(tenantId: string): Plugin {
     res.end(JSON.stringify({ error: "Method not allowed" }));
   }
 
-  return {
-    name: "tribe-api",
-    configureServer(server) {
+  function setupApiRoutes(server: { middlewares: { use: (...args: any[]) => void }; httpServer?: import("http").Server | null }) {
       // Initialise a tenant-scoped SQLite database.
       // Each tenant (utopia, stillness, …) gets its own DB file for hard data isolation.
       initDb(__dirname, tenantId);
@@ -2188,6 +2186,15 @@ function tribeApiPlugin(tenantId: string): Plugin {
         res.statusCode = 405;
         res.end(JSON.stringify({ error: "Method not allowed" }));
       });
+  }
+
+  return {
+    name: "tribe-api",
+    configureServer(server) {
+      setupApiRoutes(server);
+    },
+    configurePreviewServer(server) {
+      setupApiRoutes(server);
     },
     // Add Content-Security-Policy meta tag to HTML pages
     transformIndexHtml(html) {
@@ -2227,7 +2234,13 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_SUI_GRAPHQL_ENDPOINT": JSON.stringify(tenant.graphqlUrl),
     },
     server: {
-      port: 5174,
+      port: Number(process.env.PORT) || 5174,
+      host: true,
+      allowedHosts: true,
+    },
+    preview: {
+      port: Number(process.env.PORT) || 5174,
+      host: true,
       allowedHosts: true,
     },
   };
