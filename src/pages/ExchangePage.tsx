@@ -720,7 +720,7 @@ export function ExchangePage() {
               <div key={o.id} className="tribe-order-row">
                 <div className="tribe-order-info">
                   <span className="tribe-order-pair">{o.sourceTribeId} → {o.targetTribeId}</span>
-                  <span className="tribe-order-qty">{o.quantity.toLocaleString()} @ {o.limitRate.toFixed(4)}</span>
+                  <span className="tribe-order-qty">{o.quantity.toLocaleString()} @ {(o.limitRate ?? 0).toFixed(4)}</span>
                   <span className={`tribe-order-status status-${o.status}`}>{o.status}</span>
                 </div>
                 {o.status === "open" && (

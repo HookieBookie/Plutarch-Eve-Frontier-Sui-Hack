@@ -45,11 +45,15 @@ import { Theme } from "@radix-ui/themes";
 // ---------------------------------------------------------------------------
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { error: Error | null }
+  { error: Error | null; info: React.ErrorInfo | null }
 > {
-  state: { error: Error | null } = { error: null };
+  state: { error: Error | null; info: React.ErrorInfo | null } = { error: null, info: null };
   static getDerivedStateFromError(error: Error) {
     return { error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    this.setState({ info });
+    console.error("[ErrorBoundary]", error, info.componentStack);
   }
   render() {
     if (this.state.error) {
@@ -59,7 +63,23 @@ class ErrorBoundary extends React.Component<
           <pre style={{ whiteSpace: "pre-wrap" }}>
             {this.state.error.message}
           </pre>
-          <button onClick={() => location.reload()}>Reload</button>
+          {this.state.error.stack && (
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ cursor: "pointer", color: "#aaa" }}>Stack trace</summary>
+              <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.75rem", color: "#ccc", marginTop: 8 }}>
+                {this.state.error.stack}
+              </pre>
+            </details>
+          )}
+          {this.state.info?.componentStack && (
+            <details style={{ marginTop: 8 }}>
+              <summary style={{ cursor: "pointer", color: "#aaa" }}>Component stack</summary>
+              <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.75rem", color: "#ccc", marginTop: 8 }}>
+                {this.state.info.componentStack}
+              </pre>
+            </details>
+          )}
+          <button onClick={() => location.reload()} style={{ marginTop: 16 }}>Reload</button>
         </div>
       );
     }

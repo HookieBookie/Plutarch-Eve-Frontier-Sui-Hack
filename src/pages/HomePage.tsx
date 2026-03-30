@@ -600,11 +600,11 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
             </div>
             <div className="stat">
               <span className="stat-label">SUI Balance</span>
-              <span className="stat-value">{balances ? balances.sui.toFixed(4) : "—"}</span>
+              <span className="stat-value">{balances ? (balances.sui ?? 0).toFixed(4) : "—"}</span>
             </div>
             <div className="stat">
               <span className="stat-label">EVE Balance</span>
-              <span className="stat-value">{balances ? balances.eve.toFixed(4) : "—"}</span>
+              <span className="stat-value">{balances ? (balances.eve ?? 0).toFixed(4) : "—"}</span>
             </div>
             <div className="stat">
               <span className="stat-label">Earned {ticker}</span>

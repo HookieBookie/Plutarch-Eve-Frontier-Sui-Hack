@@ -30,7 +30,7 @@ export function FuelProgressBar({ percent, msRemaining, compact }: FuelProgressB
         height,
         width: "100%",
       }}
-      title={`${percent.toFixed(1)}% — ${formatTimeRemaining(msRemaining)} remaining`}
+      title={`${(percent ?? 0).toFixed(1)}% — ${formatTimeRemaining(msRemaining)} remaining`}
     >
       <div
         style={{
@@ -71,7 +71,7 @@ export function FuelDisplay({
         color: textColor,
       }}>
         {isBurning
-          ? `${percent.toFixed(1)}% — ${timeRemainingLabel} remaining`
+          ? `${(percent ?? 0).toFixed(1)}% — ${timeRemainingLabel} remaining`
           : quantity > 0
             ? "Offline (not burning)"
             : "Empty"}

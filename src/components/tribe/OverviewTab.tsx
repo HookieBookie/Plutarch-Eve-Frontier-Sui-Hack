@@ -86,7 +86,7 @@ export function OverviewTab({ isOwner }: { isOwner: boolean }) {
     const amt = Number(eveAmt);
     if (!amt || amt <= 0) return;
     if (balances && amt > balances.eve) {
-      setBudgetError(`Insufficient EVE — you have ${balances.eve.toFixed(4)} EVE`);
+      setBudgetError(`Insufficient EVE — you have ${(balances.eve ?? 0).toFixed(4)} EVE`);
       return;
     }
     setBudgetError(null);
@@ -210,8 +210,8 @@ export function OverviewTab({ isOwner }: { isOwner: boolean }) {
           </p>
           {balances && (
             <div className="balance-info">
-              <span>SUI: {balances.sui.toFixed(4)}</span>
-              <span>EVE: {balances.eve.toFixed(4)}</span>
+              <span>SUI: {(balances.sui ?? 0).toFixed(4)}</span>
+              <span>EVE: {(balances.eve ?? 0).toFixed(4)}</span>
             </div>
           )}
           <div className="fund-row">

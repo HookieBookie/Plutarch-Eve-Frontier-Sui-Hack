@@ -660,7 +660,7 @@ export function TerritoryPage({ onBrowseRemote }: TerritoryPageProps) {
                       <FuelProgressBar percent={fuel.percent} msRemaining={fuel.msRemaining} compact />
                       <span style={{ fontSize: "0.68rem", color: isLow ? "#e53e3e" : undefined }}>
                         {fuel.isBurning
-                          ? `${fuel.percent.toFixed(1)}% — ${fuel.timeRemainingLabel} remaining`
+                          ? `${(fuel.percent ?? 0).toFixed(1)}% — ${fuel.timeRemainingLabel} remaining`
                           : fuel.quantity > 0 ? "Offline" : "Empty"}
                         {isLow && fuel.isBurning && " ⚠"}
                       </span>

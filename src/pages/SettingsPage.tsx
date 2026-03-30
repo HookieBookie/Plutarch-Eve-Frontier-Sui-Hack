@@ -257,7 +257,7 @@ export function SettingsPage() {
                 <FuelProgressBar percent={currentFuel.percent} msRemaining={currentFuel.msRemaining} />
                 <div style={{ fontSize: "0.7rem", marginTop: "0.25rem", opacity: 0.8 }}>
                   {currentFuel.isBurning
-                    ? `${currentFuel.percent.toFixed(1)}% — ${currentFuel.timeRemainingLabel} remaining`
+                    ? `${(currentFuel.percent ?? 0).toFixed(1)}% — ${currentFuel.timeRemainingLabel} remaining`
                     : currentFuel.quantity > 0 ? "Offline (not burning)" : "Empty"}
                 </div>
               </div>
@@ -309,7 +309,7 @@ export function SettingsPage() {
                       { visibility: settings.visibility, locationPolicy: settings.locationPolicy, networkNodeId: id },
                       {
                         onSuccess: () => {
-                          setNnStatus({ type: "success", message: `Linked! ${result.name || "Network Node"} — ${result.fuel.percent.toFixed(1)}% fuel (${result.fuel.timeRemainingLabel})` });
+                          setNnStatus({ type: "success", message: `Linked! ${result.name || "Network Node"} — ${(result.fuel.percent ?? 0).toFixed(1)}% fuel (${result.fuel.timeRemainingLabel})` });
                           setNnInput("");
                         },
                       },

@@ -345,7 +345,7 @@ export function AnalyticsTab() {
           <div className="throughput-grid">
             {throughput.slice(0, 12).map((t) => (
               <div key={t.key} className="throughput-card">
-                <span className="throughput-value">{t.rate.toFixed(1)}</span>
+                <span className="throughput-value">{(t.rate ?? 0).toFixed(1)}</span>
                 <span className="throughput-unit">/ min</span>
                 <span className="throughput-label">{t.key}</span>
                 <span className="throughput-detail">{t.totalQty.toLocaleString()} total ({t.count} jobs)</span>

@@ -543,7 +543,7 @@ export function NetworkMapCanvas({
             const rect = containerRef.current?.getBoundingClientRect();
             const lines = [
               sanitiseLabel(node.label, node.ssuId),
-              `Fuel: ${fuel.percent.toFixed(1)}%${fuel.isBurning ? ` — ${fuel.timeRemainingLabel} remaining` : fuel.percent > 0 ? " (offline)" : " (empty)"}`,
+              `Fuel: ${(fuel.percent ?? 0).toFixed(1)}%${fuel.isBurning ? ` — ${fuel.timeRemainingLabel} remaining` : (fuel.percent ?? 0) > 0 ? " (offline)" : " (empty)"}`,
             ];
             if (rect) setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top - 10, content: lines });
           }
