@@ -335,7 +335,7 @@ export interface Mission {
   altReason?: string;
   /** EVE Frontier numeric item type ID for SSU inventory verification. */
   typeId?: number;
-  /** For REFINE missions: the input material that gets refined into this output. */
+  /** For REFINE / PRINT missions: the primary input material used to produce this output. */
   inputItem?: string;
 }
 
@@ -1516,10 +1516,14 @@ function classifyAndSort(
   const constructionComps = new Set(getConstruction().map((r) => r.component));
   const refiningOutputs = new Set(REFINING.map((r) => r.outputItem));
 
-  // Build output→input lookup for refine display
+  // Build output→input lookups for display
   const refInputLookup = new Map<string, string>();
   for (const r of REFINING) {
     if (!refInputLookup.has(r.outputItem)) refInputLookup.set(r.outputItem, r.inputItem);
+  }
+  const printInputLookup = new Map<string, string>();
+  for (const r of INDUSTRY) {
+    if (!printInputLookup.has(r.outputItem)) printInputLookup.set(r.outputItem, r.inputItem);
   }
 
   const missions: Mission[] = [];
@@ -1534,13 +1538,16 @@ function classifyAndSort(
     } else {
       phase = "GATHER";
     }
+    const inputItem = phase === "REFINE" ? refInputLookup.get(material)
+      : phase === "PRINT" ? printInputLookup.get(material)
+      : undefined;
     missions.push({
       phase,
       tier: PHASE_TIER[phase],
       description: `${qty.toLocaleString()} ${material}`,
       quantity: qty,
       typeId: getTypeIdByName(material) || undefined,
-      ...(phase === "REFINE" ? { inputItem: refInputLookup.get(material) } : {}),
+      ...(inputItem ? { inputItem } : {}),
     });
   }
   if (altMissions) missions.push(...altMissions);
@@ -1698,13 +1705,13 @@ export interface MissionDisplay {
   title: string;
   desc: string;
   requirement: string;
-  /** For REFINE missions: typeId of the input material (for rendering an input icon). */
+  /** typeId of the input material (for rendering an input icon). */
   inputTypeId?: number;
-  /** For REFINE missions: typeId of the output material (for rendering an output icon). */
+  /** typeId of the output material (for rendering an output icon). */
   outputTypeId?: number;
-  /** The input material name (for REFINE missions). */
+  /** The input material name. */
   inputName?: string;
-  /** The output material name (for REFINE missions). */
+  /** The output material name. */
   outputName?: string;
 }
 
@@ -1736,7 +1743,7 @@ export function parseMissionDisplay(m: Mission): MissionDisplay {
   const match = m.description.match(/^[\d,]+\s+(.+)$/);
   const itemName = match ? match[1] : m.description;
 
-  if (m.phase === "REFINE" && m.inputItem) {
+  if (m.inputItem) {
     return {
       title,
       desc: `${m.inputItem} → ${itemName}`,

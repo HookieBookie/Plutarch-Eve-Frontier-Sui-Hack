@@ -65,8 +65,11 @@ export function DeploymentProvider({ tribeId, children }: { tribeId: string; chi
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
-        if (isValidConfig(data)) {
-          setConfig(data);
+        // Always store the config if the server returned a deployment object
+        // (even partial — e.g. coin-only deploys without packageId/registryId).
+        // isConfigured gates the full setup flow separately.
+        if (data && typeof data === "object" && typeof (data as Record<string, unknown>).creditCoinType === "string") {
+          setConfig(data as DeploymentConfig);
         } else {
           setConfig(null);
         }
