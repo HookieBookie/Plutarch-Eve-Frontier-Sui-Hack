@@ -1063,6 +1063,14 @@ function tribeApiPlugin(tenantId: string): Plugin {
                   if (d.status === "pending") {
                     updateDeliveryStatus(d.id, "in-transit");
                   }
+
+                  // Mark source package as dispatched so it's removed from the sender's package list
+                  if (d.packageId) {
+                    const srcPkg = getPackageById(d.packageId);
+                    if (srcPkg && srcPkg.status === "created") {
+                      updatePackageStatus(d.packageId, "dispatched");
+                    }
+                  }
                 });
                 res.end(JSON.stringify({ ok: true }));
 
@@ -1140,6 +1148,37 @@ function tribeApiPlugin(tenantId: string): Plugin {
                     }
 
                     updateDeliveryStatus(d.id, "delivered");
+
+                    // Recreate package at destination and claim items to corporate storage
+                    if (d.packageId && d.destinationSsuId && d.destinationTribeId) {
+                      const srcPkg = getPackageById(d.packageId);
+                      if (srcPkg) {
+                        const destPkgId = `pkg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                        insertPackage(
+                          {
+                            id: destPkgId,
+                            ssuId: d.destinationSsuId,
+                            tribeId: d.destinationTribeId,
+                            name: srcPkg.name,
+                            shipType: srcPkg.shipType,
+                            fittingText: srcPkg.fittingText,
+                            createdBy: srcPkg.createdBy,
+                            status: "created",
+                            marketOrderId: null,
+                          },
+                          srcPkg.items.map((it) => ({
+                            itemTypeId: it.itemTypeId,
+                            itemName: it.itemName,
+                            quantity: it.quantity,
+                            slotType: it.slotType,
+                          })),
+                        );
+                        // Claim delivered items into destination corporate storage
+                        for (const item of srcPkg.items) {
+                          addCorporateInventory(d.destinationSsuId, d.destinationTribeId, item.itemTypeId, item.itemName, item.quantity);
+                        }
+                      }
+                    }
 
                     // Handle rewards
                     if (d.sourceType === "contract") {

@@ -17,7 +17,7 @@ import { computeTieredRewards, parseMissionDisplay, decomposeConstruct, decompos
 import { MissionIcon } from "../components/ItemIcon";
 import { useWings } from "../hooks/useWings";
 import { useMembers } from "../hooks/useMembers";
-import { useEscrowFromEphemeral, useClaim, useTrade, useReleaseBatch, usePickupBatch } from "../hooks/useEphemeralTransfer";
+import { useEscrowFromEphemeral, useEscrowEphBatch, useClaim, useTrade, useReleaseBatch, usePickupBatch } from "../hooks/useEphemeralTransfer";
 import { useAllocations } from "../hooks/useAllocations";
 import { Select } from "../components/Select";
 import { useTerritoryData } from "../hooks/useTerritoryData";
@@ -86,6 +86,7 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
 
   // On-chain ephemeral storage transfer hooks
   const { escrow: escrowToOpen } = useEscrowFromEphemeral(ssuId || undefined);
+  const { escrowEphBatch } = useEscrowEphBatch(ssuId || undefined);
   const { claim: onChainClaim } = useClaim(ssuId || undefined);
   const { releaseBatch: onChainReleaseBatch } = useReleaseBatch(ssuId || undefined);
   const { pickupBatch: onChainPickupBatch } = usePickupBatch(ssuId || undefined);
@@ -658,6 +659,167 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
   }
 
   /**
+   * Deliver an entire package at the destination SSU in one action.
+   * Verifies all manifest items are in ephemeral, escrows them all to open storage,
+   * then records progress for every item at once. The server will recreate the package
+   * at the destination tribe's corporate storage.
+   */
+  async function handleDeliveryPackageComplete(deliveryId: string) {
+    const key = `package-deliver-${deliveryId}`;
+    setContributing(key);
+    setContributeError(null);
+    try {
+      if (!character?.objectId || !character?.ownerCapId) {
+        setContributeError("Character data not loaded. Please reconnect your wallet.");
+        return;
+      }
+      if (!account?.address) { setContributeError("Wallet not connected."); return; }
+
+      const delivery = (incomingDeliveries ?? []).find((d) => d.id === deliveryId);
+      if (!delivery) { setContributeError("Delivery not found."); return; }
+
+      const courier = delivery.couriers.find(
+        (c) => c.courierWallet === account.address && c.status === "in-transit",
+      );
+      if (!courier) { setContributeError("You are not an active courier for this delivery."); return; }
+
+      // Determine remaining items to deposit
+      const itemsToDeposit: { typeId: number; itemName: string; quantity: number }[] = [];
+      for (const item of delivery.items) {
+        const deposited = courier.itemsDeposited.find((dep) => dep.typeId === item.typeId);
+        const remaining = item.quantity - (deposited?.quantity ?? 0);
+        if (remaining > 0) {
+          itemsToDeposit.push({ typeId: item.typeId, itemName: item.itemName, quantity: remaining });
+        }
+      }
+
+      if (itemsToDeposit.length === 0) {
+        setContributeError("All items already deposited.");
+        return;
+      }
+
+      // Verify all items are in ephemeral storage
+      if (ssuInventory) {
+        const myOwnerCapId = character.ownerCapId;
+        let userEphemeral = myOwnerCapId
+          ? ssuInventory.ephemeralByOwner.get(myOwnerCapId.toLowerCase())
+          : undefined;
+        if (!userEphemeral || userEphemeral.length === 0) {
+          userEphemeral = ssuInventory.allEphemeral;
+        }
+
+        for (const item of itemsToDeposit) {
+          const available = findItemQuantity(userEphemeral, item.typeId, item.itemName);
+          if (available < item.quantity) {
+            setContributeError(
+              `"${item.itemName}" — only ${available} in ephemeral (need ${item.quantity}). ` +
+              `Make sure all package items are in your ephemeral storage at this SSU.`,
+            );
+            return;
+          }
+        }
+      }
+
+      // On-chain: batch escrow all items from ephemeral → open storage
+      const escrowItems = itemsToDeposit
+        .filter((it) => it.typeId > 0)
+        .map((it) => ({ typeId: it.typeId, quantity: it.quantity }));
+
+      if (escrowItems.length > 0) {
+        try {
+          const ok = await escrowEphBatch(
+            character.objectId,
+            character.ownerCapId,
+            escrowItems,
+          );
+          if (!ok) {
+            setContributeError("On-chain batch escrow failed. Please try again.");
+            return;
+          }
+          setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
+        } catch (e) {
+          console.error("[package-deliver] Batch escrow error:", e);
+          setContributeError(`Package delivery failed: ${(e as Error).message}`);
+          return;
+        }
+      }
+
+      // Off-chain: record all deposited items at once
+      try {
+        await progressDelivery(deliveryId, account.address, itemsToDeposit);
+      } catch (e) {
+        console.warn("[package-deliver] Failed to record progress:", e);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["incoming-deliveries"] });
+      setContributeError(null);
+    } catch (err) {
+      console.error("[handleDeliveryPackageComplete] error:", err);
+      setContributeError(`Error: ${(err as Error).message || "Unknown error"}`);
+    } finally {
+      setContributing(null);
+    }
+  }
+
+  /**
+   * SSU owner verifies an entire package delivery at once via the courier's claim TX digest.
+   * Records all remaining items as deposited in a single call.
+   */
+  async function handleVerifyPackageDelivery(deliveryId: string) {
+    const key = `package-verify-${deliveryId}`;
+    setContributing(key);
+    setContributeError(null);
+    try {
+      const delivery = (incomingDeliveries ?? []).find((d) => d.id === deliveryId);
+      if (!delivery) { setContributeError("Delivery not found."); return; }
+
+      const courier = delivery.couriers.find((c) => c.status === "in-transit" && c.claimDigest);
+      if (!courier?.claimDigest) {
+        setContributeError("No claim TX to verify. The courier must pick up items at the source SSU first.");
+        return;
+      }
+
+      // Verify the claim TX on-chain
+      const verification = await verifyClaimDigest(courier.claimDigest);
+      if (!verification.valid) {
+        setContributeError(`Delivery verification failed: ${verification.error}`);
+        return;
+      }
+
+      // Determine remaining items to record
+      const itemsToRecord: { typeId: number; itemName: string; quantity: number }[] = [];
+      for (const item of delivery.items) {
+        const deposited = courier.itemsDeposited.find((dep) => dep.typeId === item.typeId);
+        const remaining = item.quantity - (deposited?.quantity ?? 0);
+        if (remaining > 0) {
+          itemsToRecord.push({ typeId: item.typeId, itemName: item.itemName, quantity: remaining });
+        }
+      }
+
+      if (itemsToRecord.length === 0) {
+        setContributeError("All items already verified.");
+        return;
+      }
+
+      // TX verified — record all deposits at once
+      try {
+        await progressDelivery(deliveryId, courier.courierWallet, itemsToRecord);
+      } catch (e) {
+        console.warn("[verify-package] Failed to record verified progress:", e);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["incoming-deliveries"] });
+      setContributeError(null);
+    } catch (err) {
+      console.error("[handleVerifyPackageDelivery] error:", err);
+      setContributeError(`Error: ${(err as Error).message || "Unknown error"}`);
+    } finally {
+      setContributing(null);
+    }
+  }
+
+  /**
    * Open the withdrawal prompt for a mission's input materials.
    * Checks: wing membership (if assigned), SSU owner block, item availability in main storage.
    */
@@ -954,10 +1116,16 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                 {myDeliveries.map((d) => {
                   const courier = d.couriers.find((c) => c.courierWallet === myWallet && c.status === "in-transit");
                   if (!courier) return null;
+                  const isPackage = !!d.packageId;
+                  const allDeposited = d.items.every((item) => {
+                    const dep = courier.itemsDeposited.find((x) => x.typeId === item.typeId);
+                    return (dep?.quantity ?? 0) >= item.quantity;
+                  });
+                  const isPackageWorking = contributing === `package-deliver-${d.id}`;
                   return (
                     <div key={d.id} className="goal-card" style={{ borderLeft: "3px solid var(--color-accent)" }}>
                       <div className="goal-header">
-                        <span className="goal-type">{d.packageId ? "📦 Package Delivery" : "📦 Deliver"}</span>
+                        <span className="goal-type">{isPackage ? "📦 Package Delivery" : "📦 Deliver"}</span>
                         <span className="goal-desc">
                           From {d.destinationLabel || d.ssuId.slice(0, 10)} → this SSU
                         </span>
@@ -987,10 +1155,12 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                                 <MissionIcon typeId={item.typeId} phase="DELIVER" size={18} />
                                 {item.itemName}
                               </div>
-                              <div className="rc-req">
-                                Deposit to this SSU's ephemeral, then click + to transfer
-                              </div>
-                              {!isComplete && (
+                              {!isPackage && (
+                                <div className="rc-req">
+                                  Deposit to this SSU's ephemeral, then click + to transfer
+                                </div>
+                              )}
+                              {!isPackage && !isComplete && (
                                 <div className="rc-controls">
                                   <button
                                     className="btn-contribute"
@@ -1011,6 +1181,19 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                           );
                         })}
                       </div>
+                      {isPackage && !allDeposited && (
+                        <div style={{ padding: "0.3rem 0.5rem", textAlign: "right" }}>
+                          <button
+                            className="btn-contribute"
+                            disabled={isPackageWorking}
+                            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+                            title="Verify all package items are in ephemeral, then deliver the entire package at once"
+                            onClick={() => handleDeliveryPackageComplete(d.id)}
+                          >
+                            {isPackageWorking ? "Delivering…" : "📦 Deliver Package"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1036,10 +1219,16 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                 {ownerDeliveries.map((d) => {
                   const courier = d.couriers.find((c) => c.status === "in-transit" && c.claimDigest);
                   if (!courier) return null;
+                  const isPackage = !!d.packageId;
+                  const allVerified = d.items.every((item) => {
+                    const dep = courier.itemsDeposited.find((x) => x.typeId === item.typeId);
+                    return (dep?.quantity ?? 0) >= item.quantity;
+                  });
+                  const isPackageWorking = contributing === `package-verify-${d.id}`;
                   return (
                     <div key={d.id} className="goal-card" style={{ borderLeft: "3px solid var(--color-success, #4caf50)" }}>
                       <div className="goal-header">
-                        <span className="goal-type">{d.packageId ? "📦 Verify Package" : "📦 Verify Delivery"}</span>
+                        <span className="goal-type">{isPackage ? "📦 Verify Package" : "📦 Verify Delivery"}</span>
                         <span className="goal-desc">
                           Courier: {courier.courierName || courier.courierWallet.slice(0, 10)}
                         </span>
@@ -1069,10 +1258,12 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                                 <MissionIcon typeId={item.typeId} phase="DELIVER" size={18} />
                                 {item.itemName}
                               </div>
-                              <div className="rc-req">
-                                Verify courier's on-chain claim TX
-                              </div>
-                              {!isComplete && (
+                              {!isPackage && (
+                                <div className="rc-req">
+                                  Verify courier's on-chain claim TX
+                                </div>
+                              )}
+                              {!isPackage && !isComplete && (
                                 <div className="rc-controls">
                                   <button
                                     className="btn-contribute"
@@ -1093,6 +1284,19 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                           );
                         })}
                       </div>
+                      {isPackage && !allVerified && (
+                        <div style={{ padding: "0.3rem 0.5rem", textAlign: "right" }}>
+                          <button
+                            className="btn-contribute"
+                            disabled={isPackageWorking}
+                            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+                            title="Verify courier's claim TX and complete all package items at once"
+                            onClick={() => handleVerifyPackageDelivery(d.id)}
+                          >
+                            {isPackageWorking ? "Verifying…" : "✓ Verify Package"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
