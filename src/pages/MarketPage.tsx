@@ -143,18 +143,48 @@ export function MarketPage({ ssuId, ssuTribeId }: Props) {
     });
   }, [catalog, selectedCategory, searchTerm, browseMode, ssuInventory]);
 
-  // Orders for the currently selected item
+  // Packages matching current search (includes content search)
+  const filteredPackages = useMemo(() => {
+    const srch = searchTerm.toLowerCase();
+    // In buy mode show packages that are listed on market; in sell mode show created packages
+    const pool = browseMode === "sell"
+      ? packages.filter((p) => p.status === "created")
+      : packages.filter((p) => p.status === "listed" || sellOrders.some((o) => o.packageId === p.id));
+    if (!srch) return pool;
+    return pool.filter(
+      (p) =>
+        p.name.toLowerCase().includes(srch) ||
+        (p.shipType && p.shipType.toLowerCase().includes(srch)) ||
+        p.items.some((i) => i.itemName.toLowerCase().includes(srch)),
+    );
+  }, [packages, searchTerm, browseMode, sellOrders]);
+
+  /** Get display name for an order (item name, or package name for package orders) */
+  function orderDisplayName(o: MarketOrder): string {
+    if (o.packageItems?.length) {
+      return `\u{1F4E6} ${o.itemName}`;
+    }
+    return o.itemName;
+  }
+
+  /** Tooltip text for package orders showing contents */
+  function packageTooltip(o: MarketOrder): string | undefined {
+    if (!o.packageItems?.length) return undefined;
+    return o.packageItems.map((i) => `${i.quantity}\u00D7 ${i.itemName}`).join('\n');
+  }
+
+  // Orders for the currently selected item — only show when an item is selected
   const itemSells = useMemo(
-    () => (selectedItem ? sellOrders.filter((o) => o.itemTypeId === selectedItem.id) : sellOrders),
-    [sellOrders, selectedItem],
+    () => (selectedItem ? sellOrders.filter((o) => o.itemTypeId === selectedItem.id || (selectedPackage && o.packageId === selectedPackage.id)) : []),
+    [sellOrders, selectedItem, selectedPackage],
   );
   const itemBuys = useMemo(
-    () => (selectedItem ? buyOrders.filter((o) => o.itemTypeId === selectedItem.id) : buyOrders),
+    () => (selectedItem ? buyOrders.filter((o) => o.itemTypeId === selectedItem.id) : []),
     [buyOrders, selectedItem],
   );
   const itemHistory = useMemo(
     () =>
-      (selectedItem ? history.filter((h) => h.itemTypeId === selectedItem.id) : history)
+      (selectedItem ? history.filter((h) => h.itemTypeId === selectedItem.id) : [])
         .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
         .slice(0, 50),
     [history, selectedItem],
@@ -545,49 +575,46 @@ export function MarketPage({ ssuId, ssuTribeId }: Props) {
                 </button>
               ))}
 
-              {/* ── Packages section (sell mode only) ── */}
-              {browseMode === "sell" && (() => {
-                const sellablePackages = packages.filter(
-                  (p) => p.status === "created" && (!searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase())),
-                );
-                if (sellablePackages.length === 0) return null;
-                return (
-                  <>
-                    <div style={{ padding: "0.5rem 0.75rem", fontSize: "0.7rem", fontWeight: 600, color: "var(--text-muted, #888)", borderTop: "1px solid var(--border, #333)", marginTop: "0.25rem" }}>
-                      Packages
-                    </div>
-                    {sellablePackages.map((pkg) => (
-                      <button
-                        key={pkg.id}
-                        className={`market-item-row ${selectedPackage?.id === pkg.id ? "active" : ""}`}
-                        onClick={() => {
-                          setSelectedPackage(pkg);
-                          setSelectedItem({
-                            id: 0,
-                            name: `📦 ${pkg.name}`,
-                            description: pkg.shipType ? `Ship fitting: ${pkg.shipType}` : "Custom bundle",
-                            mass: 0, volume: 0, portionSize: 1,
-                            groupName: "Package", groupId: 0,
-                            categoryName: "Package", categoryId: 0,
-                            radius: 0, iconUrl: "",
-                          });
+              {/* ── Packages section ── */}
+              {filteredPackages.length > 0 && (
+                <>
+                  <div style={{ padding: "0.5rem 0.75rem", fontSize: "0.7rem", fontWeight: 600, color: "var(--text-muted, #888)", borderTop: "1px solid var(--border, #333)", marginTop: "0.25rem" }}>
+                    Packages
+                  </div>
+                  {filteredPackages.map((pkg) => (
+                    <button
+                      key={pkg.id}
+                      className={`market-item-row ${selectedPackage?.id === pkg.id ? "active" : ""}`}
+                      title={pkg.items.map((i) => `${i.quantity}\u00D7 ${i.itemName}`).join('\n')}
+                      onClick={() => {
+                        setSelectedPackage(pkg);
+                        setSelectedItem({
+                          id: 0,
+                          name: `\u{1F4E6} ${pkg.name}`,
+                          description: pkg.shipType ? `Ship fitting: ${pkg.shipType}` : "Custom bundle",
+                          mass: 0, volume: 0, portionSize: 1,
+                          groupName: "Package", groupId: 0,
+                          categoryName: "Package", categoryId: 0,
+                          radius: 0, iconUrl: "",
+                        });
+                        if (browseMode === "sell") {
                           setOrderSide("sell");
                           setOrderQty("1");
-                          setBrowserOpen(false);
-                        }}
-                      >
-                        <span style={{ fontSize: "1.1rem", marginRight: "0.3rem" }}>📦</span>
-                        <div className="market-item-info">
-                          <span className="market-item-name">{pkg.name}</span>
-                          <span className="market-item-cat">
-                            {pkg.shipType || "Bundle"} · {pkg.items.length} item{pkg.items.length !== 1 ? "s" : ""}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                  </>
-                );
-              })()}
+                        }
+                        setBrowserOpen(false);
+                      }}
+                    >
+                      <span style={{ fontSize: "1.1rem", marginRight: "0.3rem" }}>{"\u{1F4E6}"}</span>
+                      <div className="market-item-info">
+                        <span className="market-item-name">{pkg.name}</span>
+                        <span className="market-item-cat">
+                          {pkg.shipType || "Bundle"} · {pkg.items.length} item{pkg.items.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           </aside>
         </div>
@@ -596,17 +623,25 @@ export function MarketPage({ ssuId, ssuTribeId }: Props) {
       {/* ═══ LEFT: Order Book ═══ */}
       <section className="market-book panel">
         <div className="panel-header-row">
-          <h3>
+          <button
+            className={`market-item-selector ${selectedItem ? "has-item" : ""}`}
+            onClick={() => setBrowserOpen(true)}
+          >
             {selectedItem ? (
-              <button className="market-item-link" onClick={() => setBrowserOpen(true)}>
-                {selectedItem.name} ▾
-              </button>
+              <>
+                {selectedItem.iconUrl && (
+                  <img src={selectedItem.iconUrl} alt="" className="market-selector-icon" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                )}
+                <span className="market-selector-name">{selectedItem.name}</span>
+                <span className="market-selector-arrow">▾</span>
+              </>
             ) : (
-              <button className="market-item-link" onClick={() => setBrowserOpen(true)}>
-                Select Item ▾
-              </button>
+              <>
+                <span className="market-selector-prompt">Select an item to trade</span>
+                <span className="market-selector-arrow">▾</span>
+              </>
             )}
-          </h3>
+          </button>
           <div className="market-book-tabs">
             <button className={`market-tab ${!showHistory ? "active" : ""}`} onClick={() => setShowHistory(false)}>
               Order Book
@@ -649,7 +684,13 @@ export function MarketPage({ ssuId, ssuTribeId }: Props) {
           <p className="error" style={{ margin: "0.5rem 0" }}>{orderError}</p>
         )}
 
-        {!showHistory ? (
+        {!selectedItem ? (
+          <div className="market-empty-state" onClick={() => setBrowserOpen(true)}>
+            <div className="market-empty-icon">{"\u{1F50D}"}</div>
+            <p>Select an item to view orders</p>
+            <p className="muted" style={{ fontSize: "0.75rem" }}>Click here or use the selector above to browse items</p>
+          </div>
+        ) : !showHistory ? (
           <>
             {/* Sell Orders (asks) – lowest first */}
             <div className="order-book-section">
@@ -658,14 +699,14 @@ export function MarketPage({ ssuId, ssuTribeId }: Props) {
                 <span>{itemSells.length}</span>
               </div>
               <div className="order-book-columns">
-                <span>Player</span><span>Qty</span><span>Price/u</span><span>Total</span><span></span>
+                <span>Item</span><span>Qty</span><span>Price/u</span><span>Total</span><span></span>
               </div>
               {itemSells.length === 0 && <p className="muted order-empty">No sell orders</p>}
               {itemSells.map((o) => (
-                <div key={o.id} className="order-row sell-row" title={o.packageItems?.length ? o.packageItems.map(i => `${i.quantity}× ${i.itemName}`).join('\n') : undefined}>
-                  <span className="order-player" title={o.wallet}>
-                    {o.visibility === "public" && <span title="Public" style={{ fontSize: "0.6rem", marginRight: "0.2rem" }}>🌐</span>}
-                    {o.packageItems?.length ? "📦 " : ""}{o.playerName || abbreviate(o.wallet)}
+                <div key={o.id} className="order-row sell-row" title={packageTooltip(o)}>
+                  <span className={`order-item-label ${o.packageItems?.length ? "pkg-label" : ""}`} title={o.packageItems?.length ? packageTooltip(o) : `Seller: ${o.playerName || abbreviate(o.wallet)}`}>
+                    {o.visibility === "public" && <span title="Public" style={{ fontSize: "0.6rem", marginRight: "0.2rem" }}>{"\u{1F310}"}</span>}
+                    {orderDisplayName(o)}
                   </span>
                   <span className="order-qty">{o.quantity.toLocaleString()}</span>
                   <span className="order-price">{o.pricePerUnit.toLocaleString()}</span>
@@ -678,7 +719,7 @@ export function MarketPage({ ssuId, ssuTribeId }: Props) {
                     )}
                     {account && o.wallet === account.address && (
                       <button className="btn-cancel" onClick={() => handleCancel(o.id)} disabled={cancelOrder.isPending}>
-                        ✕
+                        {"\u2715"}
                       </button>
                     )}
                   </span>
@@ -700,14 +741,15 @@ export function MarketPage({ ssuId, ssuTribeId }: Props) {
                 <span>{itemBuys.length}</span>
               </div>
               <div className="order-book-columns">
-                <span>Player</span><span>Qty</span><span>Price/u</span><span>Total</span><span></span>
+                <span>Item</span><span>Qty</span><span>Price/u</span><span>Total</span><span></span>
               </div>
               {itemBuys.length === 0 && <p className="muted order-empty">No buy orders</p>}
               {itemBuys.map((o) => (
-                <div key={o.id} className="order-row buy-row">
-                  <span className="order-player" title={o.wallet}>
-                    {o.visibility === "public" && <span title="Public" style={{ fontSize: "0.6rem", marginRight: "0.2rem" }}>🌐</span>}
-                    {o.playerName || abbreviate(o.wallet)}</span>
+                <div key={o.id} className="order-row buy-row" title={packageTooltip(o)}>
+                  <span className={`order-item-label ${o.packageItems?.length ? "pkg-label" : ""}`} title={o.packageItems?.length ? packageTooltip(o) : `Buyer: ${o.playerName || abbreviate(o.wallet)}`}>
+                    {o.visibility === "public" && <span title="Public" style={{ fontSize: "0.6rem", marginRight: "0.2rem" }}>{"\u{1F310}"}</span>}
+                    {orderDisplayName(o)}
+                  </span>
                   <span className="order-qty">{o.quantity.toLocaleString()}</span>
                   <span className="order-price">{o.pricePerUnit.toLocaleString()}</span>
                   <span className="order-total">{(o.quantity * o.pricePerUnit).toLocaleString()}</span>
@@ -719,7 +761,7 @@ export function MarketPage({ ssuId, ssuTribeId }: Props) {
                     )}
                     {account && o.wallet === account.address && (
                       <button className="btn-cancel" onClick={() => handleCancel(o.id)} disabled={cancelOrder.isPending}>
-                        ✕
+                        {"\u2715"}
                       </button>
                     )}
                   </span>
