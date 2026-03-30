@@ -1158,8 +1158,8 @@ function tribeApiPlugin(tenantId: string): Plugin {
                     // Recreate package at destination and claim items to corporate storage
                     if (d.packageId && d.destinationSsuId && d.destinationTribeId) {
                       const srcPkg = getPackageById(d.packageId);
-                      console.log(`[delivery-progress] Recreating package at dest: srcPkg=${srcPkg ? `"${srcPkg.name}"` : "null"}`);
-                      if (srcPkg) {
+                      console.log(`[delivery-progress] Recreating package at dest: srcPkg=${srcPkg ? `"${srcPkg.name}" (status=${srcPkg.status})` : "null"}`);
+                      if (srcPkg && srcPkg.status !== "delivered") {
                         const destPkgId = `pkg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                         insertPackage(
                           {
@@ -1184,7 +1184,11 @@ function tribeApiPlugin(tenantId: string): Plugin {
                         for (const item of srcPkg.items) {
                           addCorporateInventory(d.destinationSsuId, d.destinationTribeId, item.itemTypeId, item.itemName, item.quantity);
                         }
+                        // Mark source package as delivered so it can't be recreated again
+                        updatePackageStatus(d.packageId, "delivered");
                         console.log(`[delivery-progress] ✓ Recreated package "${srcPkg.name}" as ${destPkgId} at SSU=${d.destinationSsuId} tribe=${d.destinationTribeId}`);
+                      } else if (srcPkg?.status === "delivered") {
+                        console.log(`[delivery-progress] Skipped duplicate recreation — source package already delivered`);
                       }
                     } else {
                       console.log(`[delivery-progress] Skipped package recreation: packageId=${d.packageId ?? "none"}, destSSU=${d.destinationSsuId ?? "none"}, destTribe=${d.destinationTribeId ?? "none"}`);
@@ -2261,11 +2265,12 @@ function tribeApiPlugin(tenantId: string): Plugin {
               }
 
               if (action === "purge") {
-                // Remove packages with terminal statuses (sold, cancelled, or allocated)
+                // Remove packages with terminal statuses
+                const purgeStatuses = new Set(["sold", "cancelled", "allocated", "dispatched", "delivered"]);
                 const pkgs = getPackages(ssuId, tribeId);
                 let count = 0;
                 for (const pkg of pkgs) {
-                  if (pkg.status === "sold" || pkg.status === "cancelled" || pkg.status === "allocated") {
+                  if (purgeStatuses.has(pkg.status)) {
                     deletePackage(pkg.id);
                     count++;
                   }

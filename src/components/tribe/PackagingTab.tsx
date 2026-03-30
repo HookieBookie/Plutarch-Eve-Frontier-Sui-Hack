@@ -397,7 +397,7 @@ export function PackagingTab({ isOwner }: PackagingTabProps) {
 
       {/* ── Package List ── */}
       {mode === "list" && (() => {
-        const staleStatuses = new Set(["sold", "cancelled", "allocated", "dispatched"]);
+        const staleStatuses = new Set(["sold", "cancelled", "allocated", "dispatched", "delivered"]);
         const visiblePackages = isOwner
           ? packages
           : packages.filter((p) => p.createdBy === account?.address);
