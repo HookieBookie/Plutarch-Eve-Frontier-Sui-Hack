@@ -450,6 +450,30 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
         }
       }
 
+      // Fallback for SSU owner: check main storage instead of ephemeral
+      if (!usedEphemeral && ssuInventory) {
+        const myCharAddr = character?.characterAddress?.toLowerCase() ?? '';
+        const ssuOwnerAddr = ssuInventory.ownerId?.toLowerCase() ?? '';
+        if (myCharAddr && ssuOwnerAddr && myCharAddr === ssuOwnerAddr) {
+          const mainQty = findItemQuantity(ssuInventory.mainItems, item.typeId, item.itemName);
+          if (mainQty > 0) {
+            usedEphemeral = true; // reuse flag to skip TX-digest fallback
+            const qty = Math.min(mainQty, item.quantity);
+
+            // Off-chain: record deposit (no on-chain transfer needed — items are already in main storage)
+            if (account?.address) {
+              try {
+                await progressDelivery(deliveryId, account.address, [
+                  { typeId: item.typeId, itemName: item.itemName, quantity: qty },
+                ]);
+              } catch (e) {
+                console.warn("[delivery-complete] Failed to record owner progress:", e);
+              }
+            }
+          }
+        }
+      }
+
       // Fallback: verify via TX digest (SSU owner or no ephemeral items)
       if (!usedEphemeral) {
         const delivery = (incomingDeliveries ?? []).find((d) => d.id === deliveryId);
