@@ -1630,16 +1630,7 @@ function ContractsPanel({
                 <Select
                   value={cType}
                   onChange={(v) => { const t = v as GoalType; setCType(t); setCItem(getItemsForType(t)[0] ?? ""); }}
-                  options={[
-                    { value: "Construct", label: "Construct" },
-                    { value: "Build", label: "Build" },
-                    { value: "Assemble", label: "Assemble" },
-                    { value: "Print", label: "Print" },
-                    { value: "Refine", label: "Refine" },
-                    { value: "Gather", label: "Gather" },
-                    { value: "Acquire", label: "Acquire" },
-                    { value: "Deliver", label: "📦 Deliver" },
-                  ]}
+                  options={Object.entries(GOAL_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
                 />
                 {cType !== "Deliver" && (
                   <>
