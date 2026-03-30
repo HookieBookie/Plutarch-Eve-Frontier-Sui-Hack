@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Database
+*.db
+*.db-journal
+drizzle/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Location encryption key (auto-generated secret — NEVER commit)
+.location-key
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Move build artifacts
+move-contracts/**/build/
+
+# Coin compilation temp dirs
+.coin-build-*/
+
+# Logs
+*.log
+
+# pnpm store
+.pnpm-store/

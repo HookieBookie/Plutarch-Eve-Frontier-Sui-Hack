@@ -1,0 +1,3994 @@
+/* ========== Plutarch — EVE Frontier Theme ========== */
+
+:root {
+  --color-background: #0B0B0B;
+  --color-surface: #141414;
+  --color-surface-raised: #1A1A1A;
+  --color-text: #FAFAE5;
+  --color-text-muted: rgba(250, 250, 229, 0.55);
+  --color-border: rgba(250, 250, 229, 0.15);
+  --color-accent: #FF6600;
+  --color-accent-hover: #FF8533;
+  --color-success: #33CC66;
+  --color-error: #FF4444;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Favorit", "ABC Favorit Mono", monospace;
+  font-weight: 300;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  background-color: var(--color-background);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Frontier Disket Mono", monospace;
+  font-weight: 400;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+h3 { font-size: 1.25rem; margin-bottom: 0.75rem; }
+h4 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--color-accent); }
+
+/* ========== App Shell ========== */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.app-content {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  overflow-y: auto;
+}
+
+/* ========== Toolbar ========== */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  height: 48px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+  z-index: 300;
+}
+.toolbar-brand {
+  position: relative;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 1rem;
+  color: var(--color-accent);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+}
+.toolbar-brand-clickable {
+  cursor: pointer;
+}
+.toolbar-brand-clickable:hover {
+  color: var(--color-accent-hover);
+}
+.toolbar-tabs {
+  display: flex;
+  gap: 2px;
+  margin-left: 0.5rem;
+}
+.toolbar-tab {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.9rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.05em;
+}
+.toolbar-tab:hover { color: var(--color-text); }
+.toolbar-tab.active {
+  color: #0B0B0B;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.toolbar-tab.faucet-btn {
+  margin-left: 0.5rem;
+  border: 1px solid var(--color-border);
+  font-size: 0.72rem;
+}
+.toolbar-tab.faucet-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.faucet-container {
+  position: relative;
+  display: inline-block;
+}
+.faucet-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  padding: 0.75rem;
+  z-index: 100;
+}
+.faucet-panel-title {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.8rem;
+  color: var(--color-accent);
+  margin: 0 0 0.35rem;
+}
+.faucet-panel-desc {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.6rem;
+  line-height: 1.4;
+}
+.faucet-field {
+  margin-bottom: 0.5rem;
+}
+.faucet-field label {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.faucet-copy-row {
+  display: flex;
+  gap: 4px;
+}
+.faucet-copy-row input {
+  flex: 1;
+  font-family: "Favorit", monospace;
+  font-size: 0.7rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  min-width: 0;
+  user-select: all;
+}
+.faucet-copy-row button {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--color-accent);
+  color: #0B0B0B;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.faucet-copy-row button:hover {
+  background: var(--color-accent-hover);
+  color: #fff;
+}
+.toolbar-wallet {
+  margin-left: auto;
+  font-family: "Favorit", monospace;
+  font-size: 0.75rem;
+  padding: 0.35rem 1rem;
+  background: var(--color-accent);
+  color: #0B0B0B;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.toolbar-wallet:hover {
+  background: var(--color-accent-hover);
+  color: #fff;
+}
+
+/* ========== Wallet Picker ========== */
+.wallet-container {
+  position: relative;
+  margin-left: auto;
+}
+.wallet-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  z-index: 200;
+  padding: 0.35rem 0;
+}
+.wallet-picker-empty {
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+.wallet-picker-empty a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+.wallet-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--color-text);
+  border: none;
+  font-family: "Favorit", monospace;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  text-align: left;
+}
+.wallet-picker-item:hover {
+  background: var(--color-accent);
+  color: #0B0B0B;
+}
+.wallet-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.wallet-picker-error {
+  margin-top: 0.25rem;
+  padding: 0.5rem 1rem;
+  background: #2a0a0a;
+  border: 1px solid #ff4444;
+  color: #ff6666;
+  font-family: "Favorit", monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* ========== Profile Icon & Hover Menu ========== */
+.profile-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 240px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  z-index: 200;
+  padding: 0.6rem 0;
+}
+.brand-profile-menu {
+  left: 0;
+  right: auto;
+  top: 100%;
+  padding-top: calc(0.6rem + 14px);
+  background: #1a1a1a;
+  backdrop-filter: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+/* Invisible bridge covers the gap so the mouse never "leaves" the brand div */
+.brand-profile-menu::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 14px;
+  background: transparent;
+}
+.profile-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0.35rem;
+}
+.profile-menu-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.profile-menu-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.profile-menu-tribe {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+}
+.profile-menu-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0.75rem;
+  gap: 0.5rem;
+}
+.profile-menu-label {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+}
+.profile-menu-value {
+  font-size: 0.68rem;
+  color: var(--color-text);
+}
+.profile-menu-disconnect {
+  display: block;
+  width: calc(100% - 1.5rem);
+  margin: 0.4rem 0.75rem 0.25rem;
+  padding: 0.3rem 0;
+  background: transparent;
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
+  font-family: "Favorit", monospace;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  text-align: center;
+}
+.profile-menu-disconnect:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+.profile-menu-connect {
+  padding: 0 0.75rem 0.25rem;
+}
+.profile-menu-connect-btn {
+  width: 100%;
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+  padding: 0.35rem 0;
+}
+.profile-menu-wallets {
+  margin-top: 0.35rem;
+}
+
+/* ========== Page Layouts ========== */
+.page-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.page-single {
+  max-width: 800px;
+}
+@media (max-width: 768px) {
+  .page-grid { grid-template-columns: 1fr; }
+}
+
+/* ========== Panels ========== */
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 1.25rem;
+}
+.panel-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.panel-header-row h3 { margin-bottom: 0; }
+
+.market-item-link {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+.market-item-link:hover { text-decoration: underline; }
+
+/* ========== Stat Grid ========== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+}
+.stat-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+.stat-value {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 1.1rem;
+  color: var(--color-accent);
+}
+.tribe-tax-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.tax-input {
+  width: 3.5rem;
+  padding: 0.15rem 0.3rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.95rem;
+  text-align: right;
+  outline: none;
+}
+.tax-input:focus { border-color: var(--color-accent); }
+.btn-tax-save {
+  padding: 0.1rem 0.45rem;
+  font-size: 0.65rem;
+  background: var(--color-accent);
+  color: var(--color-background);
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.btn-tax-save:disabled { opacity: 0.5; cursor: default; }
+
+/* ========== Action Groups ========== */
+.action-group {
+  margin-bottom: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+.input-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.input-row input[type="number"],
+.input-row input[type="text"] {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.85rem;
+  outline: none;
+}
+.input-row input:focus { border-color: var(--color-accent); }
+
+.input-row select {
+  padding: 0.4rem 0.6rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.85rem;
+}
+
+/* ========== Buttons ========== */
+.btn-primary {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.8rem;
+  padding: 0.4rem 1.2rem;
+  background: var(--color-accent);
+  color: #0B0B0B;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-primary:hover {
+  background: var(--color-accent-hover);
+  color: #fff;
+}
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ========== Feedback ========== */
+.error { color: var(--color-error); font-size: 0.8rem; margin-top: 0.25rem; }
+.success { color: var(--color-success); font-size: 0.8rem; margin-top: 0.25rem; }
+.muted { color: var(--color-text-muted); }
+
+/* ========== Limits ========== */
+.limits-info {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.75rem;
+}
+
+/* ========== Tribe Card (Market right panel) ========== */
+.tribe-card {
+  padding: 1rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  margin-bottom: 0.75rem;
+}
+.tribe-card-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.tribe-name {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.9rem;
+}
+.tribe-ratio {
+  font-family: "Frontier Disket Mono", monospace;
+  color: var(--color-accent);
+  font-size: 0.9rem;
+}
+.tribe-bar-bg {
+  height: 6px;
+  background: var(--color-background);
+  margin-bottom: 0.5rem;
+}
+.tribe-bar-fill {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 0.5s ease;
+}
+.tribe-card-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+/* ========== Goal/Mission Cards (Tribe page) ========== */
+.create-goal-form {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+}
+/* Structure filter checkboxes */
+.structure-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  background: rgba(0,0,0,0.15);
+  font-size: 0.75rem;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.filter-label {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  min-width: 5.5rem;
+}
+.filter-check {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.filter-check input[type="checkbox"] {
+  accent-color: var(--color-accent);
+  margin: 0;
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.checkbox-row input[type="checkbox"] {
+  accent-color: var(--color-accent);
+}
+.goal-card {
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+}
+.goal-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+.goal-type {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--color-accent);
+  color: #0B0B0B;
+}
+.goal-desc { font-size: 0.85rem; }
+.mission-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-left: 0.25rem;
+}
+.mission-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.mission-item input[type="checkbox"] {
+  accent-color: var(--color-accent);
+}
+
+/* ========== Price Ticker ========== */
+.ticker-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  overflow: hidden;
+  z-index: 100;
+}
+.ticker-track {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  gap: 1.5rem;
+  white-space: nowrap;
+  animation: ticker-scroll 60s linear infinite;
+}
+.ticker-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0 1.5rem;
+}
+.ticker-item {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--color-accent);
+}
+.ticker-tribe { color: var(--color-text); }
+.ticker-separator {
+  color: var(--color-border);
+  font-size: 0.7rem;
+}
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Reserve space for fixed ticker */
+.app-shell { padding-bottom: 28px; }
+
+/* ========== Mission Phases ========== */
+.mission-phase {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.phase-print { background: var(--color-accent); color: #0B0B0B; }
+.phase-construct { background: var(--color-accent); color: #0B0B0B; }
+.phase-industry { background: #4488CC; color: #0B0B0B; }
+.phase-refine { background: #AA44CC; color: #fff; }
+.phase-gather { background: var(--color-success); color: #0B0B0B; }
+.phase-acquire { background: #E6A817; color: #0B0B0B; }
+
+.mission-alt { opacity: 0.5; }
+.mission-alt:hover { opacity: 0.8; }
+
+.mission-desc { flex: 1; min-width: 0; }
+
+.mission-reward {
+  margin-left: auto;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.mission-progress {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.goal-budget {
+  margin-left: auto;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--color-accent);
+}
+
+/* ========== Collapsible Goal Header ========== */
+.goal-header-clickable {
+  cursor: pointer;
+  user-select: none;
+}
+.goal-header-clickable:hover { opacity: 0.85; }
+.goal-expand {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  width: 1rem;
+  flex-shrink: 0;
+}
+
+/* ========== Published Badge ========== */
+.goal-published-badge {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  background: var(--color-success);
+  color: #0B0B0B;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.goal-ongoing-badge {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  background: #6a5acd;
+  color: #fff;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.ongoing-check {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--color-text);
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+.ongoing-check input[type="checkbox"] {
+  accent-color: #6a5acd;
+}
+
+/* ========== Goal Actions ========== */
+.goal-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.budget-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.budget-bar input[type="number"] {
+  width: 120px;
+  padding: 0.25rem 0.5rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.8rem;
+}
+
+/* ========== Tier Sliders ========== */
+.tier-sliders {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.tier-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+.tier-slider-label {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  width: 100px;
+  flex-shrink: 0;
+  font-family: "Favorit", monospace;
+}
+.tier-slider {
+  flex: 1;
+  appearance: none;
+  height: 4px;
+  background: var(--color-surface-raised);
+  border-radius: 2px;
+  outline: none;
+}
+.tier-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+}
+.tier-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: none;
+}
+.tier-slider-value {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--color-accent);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ========== Home Page — Mission Board ========== */
+.home-mission-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(250,250,229,0.06);
+}
+.home-mission-item:last-child { border-bottom: none; }
+.mission-complete { opacity: 0.4; }
+.mission-done-badge {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  background: var(--color-success);
+  color: #0B0B0B;
+  flex-shrink: 0;
+}
+.btn-contribute {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--color-accent);
+  color: #0B0B0B;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.btn-contribute:hover {
+  background: var(--color-accent-hover);
+  color: #fff;
+}
+
+/* ========== Rolodex Mission Cards ========== */
+.rolodex-container {
+  position: relative;
+  overflow-y: auto;
+  max-height: 420px;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  padding: 0.25rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent) var(--color-surface);
+}
+.rolodex-container::-webkit-scrollbar {
+  width: 4px;
+}
+.rolodex-container::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+.rolodex-container::-webkit-scrollbar-thumb {
+  background: var(--color-accent);
+  border-radius: 2px;
+}
+
+.rolodex-card {
+  scroll-snap-align: start;
+  position: relative;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.35rem;
+  background: linear-gradient(135deg, var(--color-surface-raised) 0%, rgba(20,20,20,0.95) 100%);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  overflow: visible;
+}
+.rolodex-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-accent) 0%, transparent 60%);
+  opacity: 0.4;
+}
+.rolodex-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(250,250,229,0.015) 2px,
+    rgba(250,250,229,0.015) 4px
+  );
+  pointer-events: none;
+}
+.rolodex-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 12px rgba(255,102,0,0.15), inset 0 0 20px rgba(255,102,0,0.03);
+  transform: translateX(2px);
+}
+.rolodex-card.phase-print-card { border-left-color: var(--color-accent); }
+.rolodex-card.phase-construct-card { border-left-color: var(--color-accent); }
+.rolodex-card.phase-industry-card  { border-left-color: #4488CC; }
+.rolodex-card.phase-refine-card    { border-left-color: #AA44CC; }
+.rolodex-card.phase-gather-card    { border-left-color: var(--color-success); }
+.rolodex-card.phase-acquire-card   { border-left-color: #E6A817; }
+
+.rolodex-card.phase-print-card:hover { box-shadow: 0 0 12px rgba(255,102,0,0.15); }
+.rolodex-card.phase-construct-card:hover { box-shadow: 0 0 12px rgba(255,102,0,0.15); }
+.rolodex-card.phase-industry-card:hover  { box-shadow: 0 0 12px rgba(68,136,204,0.2); }
+.rolodex-card.phase-refine-card:hover    { box-shadow: 0 0 12px rgba(170,68,204,0.2); }
+.rolodex-card.phase-gather-card:hover    { box-shadow: 0 0 12px rgba(51,204,102,0.2); }
+.rolodex-card.phase-acquire-card:hover   { box-shadow: 0 0 12px rgba(230,168,23,0.2); }
+
+.rolodex-card.mission-alt-card {
+  opacity: 0.45;
+  border-left-style: dashed;
+}
+.rolodex-card.mission-alt-card:hover {
+  opacity: 0.75;
+}
+.rc-alt-reason {
+  font-size: 0.72rem;
+  font-style: italic;
+  color: #999;
+  margin: 1px 0 0;
+}
+.alt-legend {
+  font-size: 0.72rem;
+  color: #888;
+  margin: 0 0 6px;
+  padding: 4px 8px;
+  border: 1px dashed #444;
+  border-radius: 4px;
+}
+.alt-legend-faded {
+  opacity: 0.55;
+}
+.rolodex-card.mission-complete-card {
+  opacity: 0.35;
+  border-left-color: var(--color-success);
+}
+
+/* Card layout: title row → description → requirement */
+.rc-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+.rc-phase {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  padding: 0.1rem 0.5rem;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.rc-phase.phase-print { background: var(--color-accent); color: #0B0B0B; }
+.rc-phase.phase-construct { background: var(--color-accent); color: #0B0B0B; }
+.rc-phase.phase-industry  { background: #4488CC; color: #0B0B0B; }
+.rc-phase.phase-refine    { background: #AA44CC; color: #fff; }
+.rc-phase.phase-gather    { background: var(--color-success); color: #0B0B0B; }
+.rc-phase.phase-acquire   { background: #E6A817; color: #0B0B0B; }
+
+.rc-reward {
+  margin-left: auto;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+.rc-progress {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.rc-done-badge {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.55rem;
+  padding: 0.1rem 0.4rem;
+  background: var(--color-success);
+  color: #0B0B0B;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.rc-ongoing-badge {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.55rem;
+  padding: 0.1rem 0.4rem;
+  background: var(--color-accent);
+  color: #0B0B0B;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.rc-desc {
+  font-family: "Favorit", monospace;
+  font-size: 0.82rem;
+  color: var(--color-text);
+  margin-bottom: 0.2rem;
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.rc-req {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+.rc-req::before {
+  content: "▸ ";
+  color: var(--color-accent);
+  opacity: 0.6;
+}
+
+/* Controls row (checkbox for tribe, contribute button for home) */
+.rc-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.6rem;
+  z-index: 2;
+}
+.rc-controls input[type="checkbox"] {
+  accent-color: var(--color-accent);
+}
+
+/* ACQUIRE reward inline input */
+.acquire-reward-input {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  color: #E6A817;
+}
+.acquire-reward-input input[type="number"] {
+  background: var(--color-background);
+  border: 1px solid #E6A817;
+  color: #E6A817;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  padding: 0.15rem 0.3rem;
+  text-align: right;
+}
+
+/* ========== Budget Pool Section ========== */
+.budget-pool-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+.budget-pool-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.budget-deposit-row {
+  padding-top: 0.5rem;
+}
+.budget-deposit-row h4 {
+  margin-bottom: 0.5rem;
+}
+.fund-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.fund-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+.fund-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+.fund-field input {
+  padding: 0.4rem 0.6rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.85rem;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.fund-field input:focus { border-color: var(--color-accent); }
+.fund-arrow {
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  padding-bottom: 0.35rem;
+}
+.budget-label {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+/* ========== Cancel Button ========== */
+.btn-cancel {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.8rem;
+  padding: 0.4rem 1.2rem;
+  background: transparent;
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-cancel:hover {
+  background: var(--color-error);
+  color: #0B0B0B;
+}
+
+/* ========== Cancelled Goal ========== */
+.goal-cancelled {
+  opacity: 0.4;
+}
+.goal-cancelled-badge {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  background: var(--color-error);
+  color: #fff;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.cancelled-section {
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+.cancelled-section summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ========== Balance Info ========== */
+.balance-info {
+  display: flex;
+  gap: 1.5rem;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.5rem;
+}
+
+/* ========== Setup Page ========== */
+.setup-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+}
+.setup-card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 2.5rem 2rem;
+}
+.setup-title {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 1.6rem;
+  color: var(--color-accent);
+  text-align: center;
+  letter-spacing: 0.15em;
+  margin-bottom: 0.25rem;
+}
+.setup-subtitle {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+}
+.setup-section {
+  margin-bottom: 1.25rem;
+}
+.setup-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.setup-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+.setup-value {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.85rem;
+  color: var(--color-accent);
+}
+.setup-input {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.85rem;
+  outline: none;
+}
+.setup-input:focus {
+  border-color: var(--color-accent);
+}
+.setup-btn {
+  width: 100%;
+  padding: 0.65rem;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.setup-character-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.setup-step-title {
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.setup-deposit-summary {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* ========== Inline Validation Errors ========== */
+.input-error {
+  color: var(--color-error);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+/* ========== Balance Summary (HomePage right panel) ========== */
+.balance-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.balance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+}
+.balance-row.balance-total {
+  border-color: var(--color-accent);
+  margin-top: 0.25rem;
+}
+.balance-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+.balance-value {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 1rem;
+  color: var(--color-accent);
+}
+.balance-value.earned {
+  color: var(--color-success);
+}
+.stat-earned {
+  color: var(--color-success) !important;
+}
+
+/* ========== SSU Inventory List ========== */
+.inventory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.inventory-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(250,250,229,0.06);
+}
+.inventory-item:last-child { border-bottom: none; }
+.inventory-name {
+  color: var(--color-text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inventory-qty {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--color-accent);
+}
+.inventory-divider {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  padding: 0.35rem 0 0.15rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* ========== Allocation / Wing Supplies ========== */
+.inventory-item-row {
+  border-bottom: 1px solid rgba(250,250,229,0.06);
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.15rem;
+}
+.inventory-item-row:last-child { border-bottom: none; margin-bottom: 0; }
+
+.alloc-badge {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+}
+
+.alloc-panel {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-top: 0.3rem;
+}
+.alloc-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.alloc-label {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  min-width: 2.5rem;
+}
+.alloc-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  color: var(--color-text);
+  font-family: "Frontier Disket Mono", monospace;
+}
+.alloc-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.alloc-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.alloc-detail-row {
+  margin-left: 0.5rem;
+}
+.alloc-detail {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  font-size: 0.7rem;
+}
+.alloc-wing-clickable {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.alloc-wing-clickable:hover {
+  opacity: 0.7;
+}
+.alloc-detail-qty {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+.btn-danger {
+  color: #f87171 !important;
+  border-color: rgba(248,113,113,0.3) !important;
+}
+.btn-danger:hover {
+  background: rgba(248,113,113,0.1) !important;
+}
+
+/* ========== Marketplace ========== */
+
+.market-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 1rem;
+  min-height: calc(100vh - 48px - 28px - 2rem);
+}
+@media (max-width: 1024px) {
+  .market-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Floating Item Browser ── */
+.market-browser-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fade-in 0.15s ease;
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.market-browser-panel {
+  width: 380px;
+  max-width: 92vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  animation: slide-up 0.2s ease;
+}
+@keyframes slide-up { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.market-browser-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.market-browser-header h3 { margin: 0; }
+.market-browser-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  line-height: 1;
+}
+.market-browser-close:hover { color: var(--color-text); }
+
+/* ── Sidebar (legacy compat) ── */
+.market-sidebar { overflow-y: auto; max-height: calc(100vh - 48px - 28px - 2rem); }
+.market-sidebar h3 { margin-bottom: 0.5rem; }
+
+.market-search {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.5rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.8rem;
+  outline: none;
+}
+.market-search:focus { border-color: var(--color-accent); }
+.market-search::placeholder { color: var(--color-text-muted); }
+
+.market-category-select {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  margin-bottom: 0.75rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.8rem;
+}
+
+.market-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.market-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  background: var(--color-surface-raised);
+  border: 1px solid transparent;
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.1s ease;
+}
+.market-item-row:hover {
+  border-color: var(--color-border);
+  background: var(--color-background);
+}
+.market-item-row.active {
+  border-color: var(--color-accent);
+  background: rgba(255, 102, 0, 0.08);
+}
+.market-item-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.item-icon {
+  flex-shrink: 0;
+  object-fit: contain;
+  image-rendering: pixelated;
+  vertical-align: middle;
+}
+.market-item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.market-item-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.market-item-cat {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+}
+.market-order-count {
+  margin-left: auto;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.35rem;
+  background: var(--color-accent);
+  color: #0B0B0B;
+  flex-shrink: 0;
+}
+
+.market-inv-qty {
+  margin-left: auto;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.35rem;
+  background: var(--color-success);
+  color: #0B0B0B;
+  flex-shrink: 0;
+}
+
+/* ── Center: Order Book ── */
+.market-book {
+  overflow-y: auto;
+  max-height: calc(100vh - 48px - 28px - 2rem);
+}
+
+.market-book-tabs,
+.market-actions-tabs {
+  display: flex;
+  gap: 2px;
+}
+.market-tab {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  padding: 0.3rem 0.8rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.market-tab:hover { color: var(--color-text); }
+.market-tab.active {
+  color: #0B0B0B;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.market-item-detail {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.75rem;
+  padding: 0.5rem 0;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.75rem;
+}
+.market-detail-label {
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+}
+.market-detail-icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  grid-column: 1 / -1;
+  margin-bottom: 0.25rem;
+}
+
+/* ── Order Book Rows ── */
+.order-book-section {
+  margin-bottom: 0.5rem;
+}
+.order-book-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.sell-header { background: rgba(255, 68, 68, 0.12); color: var(--color-error); }
+.buy-header { background: rgba(51, 204, 102, 0.12); color: var(--color-success); }
+
+.order-book-columns {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr 1fr 60px;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.order-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr 1fr 60px;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0.5rem;
+  font-family: "Favorit", monospace;
+  font-size: 0.75rem;
+  border-bottom: 1px solid rgba(250, 250, 229, 0.04);
+  transition: background 0.1s;
+}
+.order-row:hover { background: rgba(250, 250, 229, 0.03); }
+.sell-row .order-price { color: var(--color-error); }
+.buy-row .order-price { color: var(--color-success); }
+
+.order-player {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.order-qty {
+  font-family: "Frontier Disket Mono", monospace;
+}
+.order-price {
+  font-family: "Frontier Disket Mono", monospace;
+}
+.order-total {
+  font-family: "Frontier Disket Mono", monospace;
+  color: var(--color-text-muted);
+}
+.order-time {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+}
+.order-item-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.order-empty {
+  padding: 0.5rem;
+  font-size: 0.75rem;
+}
+.order-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.order-spread {
+  text-align: center;
+  padding: 0.25rem;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  border-top: 1px dashed var(--color-border);
+  border-bottom: 1px dashed var(--color-border);
+  margin: 0.25rem 0;
+}
+
+.btn-fill {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  padding: 0.15rem 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.sell-row .btn-fill {
+  background: var(--color-success);
+  color: #0B0B0B;
+}
+.buy-row .btn-fill {
+  background: var(--color-error);
+  color: #fff;
+}
+.btn-fill:hover { opacity: 0.85; }
+.btn-fill:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-cancel {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  padding: 0.15rem 0.4rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.btn-cancel:hover { color: var(--color-error); border-color: var(--color-error); }
+.btn-cancel:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Right: Place Order Panel ── */
+.market-actions {
+  overflow-y: auto;
+  max-height: calc(100vh - 48px - 28px - 2rem);
+}
+.market-actions-tabs { margin-bottom: 0.75rem; }
+
+.place-order-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.order-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.order-item-title {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.9rem;
+}
+.order-item-category {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+}
+
+.order-side-toggle {
+  display: flex;
+  gap: 2px;
+}
+.side-btn {
+  flex: 1;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.8rem;
+  padding: 0.45rem;
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.side-btn:hover { color: var(--color-text); }
+.side-btn.active.sell {
+  background: rgba(255, 68, 68, 0.15);
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+.side-btn.active.buy {
+  background: rgba(51, 204, 102, 0.15);
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.order-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.order-field label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+.order-field input {
+  padding: 0.4rem 0.6rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.85rem;
+  outline: none;
+}
+.order-field input:focus { border-color: var(--color-accent); }
+
+.order-summary {
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.75rem;
+}
+.order-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.15rem 0;
+  color: var(--color-text-muted);
+}
+.order-summary-row.total {
+  color: var(--color-text);
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.85rem;
+  padding-top: 0.3rem;
+  margin-top: 0.2rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.order-balance {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  padding: 0.25rem 0;
+}
+.order-balance strong {
+  color: var(--color-accent);
+  font-family: "Frontier Disket Mono", monospace;
+}
+
+.btn-place-order {
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* ── Swap Card (Exchange Page) ── */
+.swap-card {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.swap-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.swap-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.swap-balance {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  font-family: "Frontier Disket Mono", monospace;
+}
+.swap-input-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+}
+.swap-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+.swap-input-row .swap-output {
+  background: var(--color-surface);
+  color: var(--color-accent);
+  font-family: "Frontier Disket Mono", monospace;
+}
+.swap-select.custom-select {
+  width: 10rem;
+  flex-shrink: 0;
+  position: relative;
+}
+.swap-select .custom-select-trigger {
+  padding: 0.3rem 0.4rem;
+  font-size: 0.75rem;
+}
+.swap-select .custom-select-menu {
+  min-width: 10rem;
+  z-index: 300;
+}
+.swap-max-btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.65rem;
+  background: var(--color-surface);
+  color: var(--color-accent);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  font-family: "Frontier Disket Mono", monospace;
+  white-space: nowrap;
+}
+.swap-max-btn:hover {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.swap-direction {
+  display: flex;
+  justify-content: center;
+  padding: 0.15rem 0;
+}
+.swap-arrow-btn {
+  background: var(--color-surface);
+  color: var(--color-accent);
+  border: 1px solid var(--color-border);
+  width: 2rem;
+  height: 2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.swap-arrow-btn:hover:not(.disabled) {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.swap-arrow-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ── My Orders List ── */
+.my-orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.my-order-card {
+  padding: 0.5rem 0.6rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+}
+.my-order-card.sell { border-left: 3px solid var(--color-error); }
+.my-order-card.buy { border-left: 3px solid var(--color-success); }
+
+.my-order-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+.order-side-badge {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.55rem;
+  padding: 0.1rem 0.35rem;
+  letter-spacing: 0.05em;
+}
+.order-side-badge.sell { background: var(--color-error); color: #fff; }
+.order-side-badge.buy { background: var(--color-success); color: #0B0B0B; }
+.my-order-item {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.my-order-details {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.3rem;
+}
+.order-total-small {
+  font-family: "Frontier Disket Mono", monospace;
+  color: var(--color-accent);
+}
+.my-order-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ========== Recipe Editor ========== */
+.recipe-editor {
+  margin-top: 0.75rem;
+}
+.recipe-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.25rem;
+}
+.recipe-tab {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  padding: 0.3rem 0.8rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.15s ease;
+}
+.recipe-tab:hover { color: var(--color-text); }
+.recipe-tab.active {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: rgba(255,102,0,0.08);
+}
+.recipe-section { display: flex; flex-direction: column; gap: 0.75rem; }
+.recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent) var(--color-surface);
+}
+.recipe-row {
+  padding: 0.4rem 0.6rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  font-size: 0.78rem;
+}
+.recipe-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.2rem;
+}
+.recipe-name {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--color-accent);
+  letter-spacing: 0.05em;
+}
+.recipe-components {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.recipe-comp {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+.recipe-row-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.recipe-io {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.recipe-delete {
+  font-size: 0.85rem;
+  background: transparent;
+  color: var(--color-error);
+  border: none;
+  cursor: pointer;
+  padding: 0 0.3rem;
+  flex-shrink: 0;
+}
+.recipe-delete:hover { opacity: 0.7; }
+.recipe-form {
+  padding: 0.75rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+}
+.recipe-form h4 {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--color-accent);
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.05em;
+}
+.recipe-form input[type="text"],
+.recipe-form input[type="number"] {
+  padding: 0.3rem 0.5rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.78rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+.recipe-form input:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+.recipe-comp-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+.recipe-comp-row input[type="text"] { flex: 1; }
+.recipe-comp-row input[type="number"] { width: 5rem !important; flex: none; }
+.recipe-arrow {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 0.2rem 0;
+}
+.recipe-form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.btn-secondary {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.8rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-secondary:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+/* ========== Custom Select Dropdown ========== */
+.custom-select {
+  position: relative;
+  display: inline-block;
+}
+.custom-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease;
+}
+.custom-select-trigger:hover,
+.custom-select.open .custom-select-trigger {
+  border-color: var(--color-accent);
+}
+.custom-select-arrow {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+.custom-select-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 100%;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-accent);
+  z-index: 300;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent) var(--color-surface);
+}
+.custom-select-option {
+  padding: 0.35rem 0.6rem;
+  font-family: "Favorit", monospace;
+  font-size: 0.82rem;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.1s ease;
+  white-space: nowrap;
+}
+.custom-select-option:hover {
+  background: var(--color-accent);
+  color: #0B0B0B;
+}
+.custom-select-option.active {
+  background: rgba(255, 102, 0, 0.15);
+  color: var(--color-accent);
+}
+.custom-select-option.active:hover {
+  background: var(--color-accent);
+  color: #0B0B0B;
+}
+/* Market sidebar override: full-width */
+.market-category-select.custom-select {
+  display: block;
+  margin-bottom: 0.75rem;
+}
+.market-category-select .custom-select-trigger {
+  width: 100%;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.5rem;
+}
+
+/* ========== Tribe Page Tabs ========== */
+.tribe-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 1rem;
+  margin-top: 0.75rem;
+  overflow-x: auto;
+}
+.tribe-tab {
+  padding: 0.5rem 1rem;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tribe-tab:hover { color: var(--color-text); }
+.tribe-tab-active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+.tribe-tab-content { min-height: 200px; }
+
+/* ========== Completed Badge ========== */
+.goal-completed-badge {
+  font-size: 0.6rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--color-success);
+  color: var(--color-success);
+  border-radius: 2px;
+  letter-spacing: 0.06em;
+  margin-left: auto;
+}
+
+/* ========== Wing Pills (mission assignment) ========== */
+.wing-pills {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  margin-left: 0.5rem;
+}
+.wing-pill {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.55rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid;
+  background: transparent;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: all 0.15s;
+}
+.wing-pill-active {
+  font-weight: bold;
+}
+
+/* ========== WING Button + Dropdown (Operations) ========== */
+.wing-dropdown-portal {
+  pointer-events: auto;
+}
+.wing-btn-wrapper {
+  position: relative;
+}
+.wing-btn {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  background: transparent;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+.wing-btn:hover {
+  background: rgba(255, 102, 0, 0.12);
+}
+.wing-btn-active {
+  background: var(--color-accent);
+  color: #0B0B0B;
+}
+.wing-dropdown {
+  min-width: 140px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+.wing-dropdown-item {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  padding: 0.35rem 0.5rem;
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: background 0.12s;
+}
+.wing-dropdown-item:hover {
+  background: rgba(250, 250, 229, 0.06);
+}
+.wing-dropdown-item-active {
+  background: rgba(250, 250, 229, 0.08);
+}
+.wing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.wing-check {
+  margin-left: auto;
+  color: var(--color-success);
+  font-size: 0.6rem;
+}
+
+/* Wing tag (inline badge) */
+.wing-tag {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.55rem;
+  padding: 0.05rem 0.3rem;
+  border: 1px solid;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* ========== Character Lookup Result ========== */
+.lookup-result {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  background: rgba(51, 204, 102, 0.06);
+  border: 1px solid var(--color-success);
+  margin-bottom: 0.75rem;
+}
+.lookup-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+.lookup-name {
+  font-family: "Frontier Disket Mono", monospace;
+  font-weight: bold;
+  font-size: 0.85rem;
+  color: var(--color-success);
+}
+.lookup-tribe {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+.lookup-addr {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  font-family: monospace;
+}
+
+/* ========== Personnel Tab ========== */
+.personnel-section h4 {
+  margin-bottom: 0.5rem;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.9rem;
+}
+.wings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+.wing-card {
+  border: 1px solid;
+  padding: 0.6rem;
+  background: var(--color-surface);
+}
+.wing-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.wing-name {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+.wing-count {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+.btn-subtle {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 0.2rem;
+}
+.btn-subtle:hover { color: var(--color-text); }
+.btn-subtle-danger:hover { color: var(--color-error); }
+.wing-members { font-size: 0.8rem; }
+.wing-member-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0;
+}
+.member-group {
+  margin-top: 0.75rem;
+}
+.member-group h5 {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.75rem;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+}
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.8rem;
+}
+.member-name { font-weight: bold; min-width: 80px; }
+.member-addr { color: var(--color-text-muted); font-size: 0.7rem; font-family: monospace; }
+.member-date { color: var(--color-text-muted); font-size: 0.65rem; margin-left: auto; }
+.wing-assign-btns { display: flex; gap: 0.25rem; }
+
+/* ── Wing Symbol Badge ── */
+.wing-symbol-badge {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ── Wing Colour / Symbol Picker Grids ── */
+.wing-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0.4rem 0;
+  margin-bottom: 0.3rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.wing-color-swatch {
+  width: 22px;
+  height: 22px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.12s;
+  padding: 0;
+}
+.wing-color-swatch:hover { transform: scale(1.2); }
+.wing-color-swatch.active { border-color: var(--color-text); }
+.wing-symbol-swatch {
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.12s, transform 0.12s;
+}
+.wing-symbol-swatch:hover { transform: scale(1.15); border-color: var(--color-text); }
+.wing-symbol-swatch.active { border-color: currentColor; background: rgba(255,255,255,0.08); }
+
+/* ========== Analytics Tab ========== */
+.analytics-filters {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+.analytics-filter-btn {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  padding: 0.25rem 0.6rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+.analytics-filter-btn:hover { border-color: var(--color-text-muted); color: var(--color-text); }
+.analytics-filter-btn.active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.6rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.kpi-value {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 1.2rem;
+  color: var(--color-accent);
+}
+.kpi-label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-top: 0.2rem;
+}
+.analytics-panel {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.analytics-panel h4 {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.8rem;
+  margin-bottom: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Bar Charts */
+.bar-chart { display: flex; flex-direction: column; gap: 0.4rem; }
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.bar-label {
+  font-size: 0.7rem;
+  min-width: 100px;
+  text-align: right;
+  color: var(--color-text-muted);
+}
+.bar-track {
+  flex: 1;
+  height: 16px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 0.3s ease;
+}
+.bar-fill-alt { background: var(--color-success); }
+.bar-value {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  min-width: 60px;
+  color: var(--color-text);
+}
+
+/* Throughput */
+.throughput-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+.throughput-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+.throughput-value {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 1.1rem;
+  color: var(--color-accent);
+}
+.throughput-unit {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+}
+.throughput-label {
+  font-size: 0.65rem;
+  color: var(--color-text);
+  margin-top: 0.25rem;
+  text-align: center;
+}
+.throughput-detail {
+  font-size: 0.55rem;
+  color: var(--color-text-muted);
+}
+
+/* Ledger Table */
+.ledger-table-wrap {
+  overflow-x: auto;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+.ledger-table th {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  background: var(--color-surface);
+}
+.ledger-table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+.ledger-table tr.row-complete td { color: var(--color-success); }
+.ledger-table tr.row-active td { color: var(--color-text); }
+.ledger-table tr.row-cancelled td { color: #888; text-decoration: line-through; opacity: 0.7; }
+.ledger-search {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  margin-bottom: 0.5rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.8rem;
+  outline: none;
+  box-sizing: border-box;
+}
+.ledger-search:focus { border-color: var(--color-accent); }
+
+/* Event Badges */
+.event-badge {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.55rem;
+  padding: 0.1rem 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid;
+}
+.event-goal-start { border-color: var(--color-accent); color: var(--color-accent); }
+.event-goal-complete { border-color: var(--color-success); color: var(--color-success); }
+.event-goal-cancel { border-color: var(--color-error); color: var(--color-error); }
+.event-mission-start { border-color: #3399FF; color: #3399FF; }
+.event-mission-complete { border-color: var(--color-success); color: var(--color-success); }
+.event-budget-fund { border-color: #FFCC00; color: #FFCC00; }
+.event-budget-allocate { border-color: #CC33FF; color: #CC33FF; }
+
+/* ── Admin Page ── */
+.admin-page {
+  max-width: 640px;
+}
+.admin-gate {
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+.admin-gate h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+.admin-header h2 {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 1rem;
+  color: var(--color-accent);
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+.admin-action-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.admin-action-row input {
+  flex: 1;
+  min-width: 0;
+}
+.admin-action-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* ── Phase 3 — Network Page ── */
+
+.network-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.network-radio-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.network-radio-label:hover {
+  border-color: var(--color-border);
+}
+.network-radio-label input[type="radio"] {
+  margin-top: 0.18rem;
+  accent-color: var(--color-accent);
+}
+
+.network-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.network-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+.network-request-item {
+  flex-direction: row;
+}
+.network-request-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.network-add-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.btn-sm-network {
+  font-size: 0.68rem !important;
+  padding: 0.2rem 0.55rem !important;
+}
+.btn-danger-text {
+  color: #e55;
+}
+.btn-danger-text:hover {
+  color: #f77;
+}
+
+.badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.3rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--color-background);
+  background: var(--color-accent);
+  border-radius: 999px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+
+.request-status {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.request-status-pending {
+  color: #db0;
+}
+.request-status-approved {
+  color: #4c8;
+}
+.request-status-denied {
+  color: #e55;
+}
+.request-status-auto-approved {
+  color: #4c8;
+}
+.request-status-auto-denied {
+  color: #e55;
+}
+.request-status-blocked {
+  color: #e55;
+}
+
+.mono-sm {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+}
+
+/* ── Phase 3 — Territory Page ── */
+
+.territory-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--color-border);
+}
+.territory-header {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1.2fr 0.8fr 0.8fr 1fr;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--color-surface, var(--color-background));
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+.territory-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1.2fr 0.8fr 0.8fr 1fr;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.territory-row:last-child {
+  border-bottom: none;
+}
+.territory-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.territory-row-current {
+  background: rgba(255, 255, 255, 0.04);
+}
+.territory-row-selected {
+  background: rgba(255, 255, 255, 0.06);
+  border-left: 2px solid var(--color-accent);
+}
+
+.territory-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.territory-cell-name {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  white-space: normal;
+}
+.territory-badges {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+.territory-ssu-name {
+  font-weight: 500;
+}
+.territory-badge {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  padding: 0.05rem 0.3rem;
+  line-height: 1;
+}
+
+.territory-detail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.territory-badge-map {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.territory-actions {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* ── Phase 4 — Network Map ── */
+
+.network-map-container {
+  position: relative;
+  width: 100%;
+  height: 340px;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  overflow: hidden;
+  cursor: grab;
+}
+.network-map-container:active {
+  cursor: grabbing;
+}
+.network-map-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.network-map-controls {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.map-ctrl-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.12s;
+}
+.map-ctrl-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.network-map-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.map-pick-hint {
+  font-size: 0.72rem;
+  color: var(--color-accent);
+  margin-bottom: 0.4rem;
+  animation: subtlePulse 1.5s infinite;
+}
+@keyframes subtlePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Filter tabs */
+.map-filter-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+.map-filter-tab {
+  flex: 1;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.map-filter-tab:last-child {
+  border-right: none;
+}
+.map-filter-tab:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text);
+}
+.map-filter-tab.active {
+  background: rgba(255, 102, 0, 0.12);
+  color: var(--color-accent);
+  border-bottom: 2px solid var(--color-accent);
+}
+
+/* Connections in detail panel */
+.connection-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.72rem;
+}
+.connection-type {
+  font-weight: 600;
+  font-size: 0.65rem;
+}
+.connection-type-route {
+  color: var(--color-text);
+}
+.connection-type-data {
+  color: var(--color-accent);
+}
+.connection-target {
+  flex: 1;
+  color: var(--color-text-muted);
+}
+
+/* Small network action buttons in territory grid rows */
+.btn-sm-network {
+  font-size: 0.6rem;
+  padding: 0.15rem 0.4rem;
+  white-space: nowrap;
+}
+.btn-danger-subtle {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+.btn-danger-subtle:hover {
+  background: rgba(255, 68, 68, 0.12);
+}
+
+/* ── Link Setup Dialog ── */
+
+.link-setup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.link-setup-dialog {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  width: min(440px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 1rem;
+}
+.link-setup-dialog h3 {
+  margin-bottom: 0.6rem;
+}
+.link-setup-dialog h4 {
+  font-size: 0.78rem;
+  margin: 0.5rem 0 0.3rem;
+}
+
+.link-type-btns {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.link-type-btn {
+  flex: 1;
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  transition: border-color 0.12s, color 0.12s;
+}
+.link-type-btn.selected {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.link-type-btn:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+.waypoint-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+.waypoint-step-num {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  width: 1.2rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+.waypoint-type-select {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 0.68rem;
+  padding: 0.2rem 0.3rem;
+  width: 6.5rem;
+  flex-shrink: 0;
+}
+.waypoint-fields {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+.waypoint-fields input {
+  flex: 1;
+  min-width: 0;
+}
+.lpoint-input {
+  width: 5rem !important;
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.68rem;
+}
+.lpoint-prefix {
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.waypoint-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-error);
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 0 0.2rem;
+  flex-shrink: 0;
+}
+
+.data-share-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.35rem;
+  margin: 0.5rem 0;
+}
+.data-share-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.data-share-item input[type="checkbox"] {
+  accent-color: var(--color-accent);
+}
+
+.link-dialog-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  justify-content: flex-end;
+}
+
+.link-dialog-summary {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin: 0.5rem 0;
+  padding: 0.4rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+
+/* ── Map Tooltip ── */
+.map-tooltip {
+  position: absolute;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 0.35rem 0.5rem;
+  font-size: 0.65rem;
+  color: var(--color-text);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 100;
+  max-width: 220px;
+  white-space: normal;
+}
+
+.request-status {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.request-status-pending { color: var(--color-accent); }
+.request-status-approved { color: var(--color-success); }
+.request-status-denied { color: var(--color-error); }
+
+/* ── Map Legend ── */
+.map-legend {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.03em;
+}
+.legend-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Data Share Warning ── */
+.data-share-warning {
+  font-size: 0.68rem;
+  color: var(--color-accent);
+  background: rgba(255, 102, 0, 0.08);
+  border: 1px solid rgba(255, 102, 0, 0.25);
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+/* ── Connection Shares (in detail panel) ── */
+.connection-shares {
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ── Waypoint Type Select using custom Select component ── */
+.waypoint-type-select.custom-select {
+  width: 7rem;
+  flex-shrink: 0;
+}
+.waypoint-type-select .custom-select-trigger {
+  font-size: 0.68rem;
+  padding: 0.2rem 0.4rem;
+}
+.waypoint-type-select .custom-select-menu {
+  min-width: 7rem;
+}
+
+/* ── Waypoint Row Layout ── */
+.waypoint-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+.waypoint-step {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  min-width: 3rem;
+}
+.waypoint-lpoint-group,
+.waypoint-system-group {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-bottom: 0.2rem;
+}
+.waypoint-label {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  min-width: 5.5rem;
+}
+.waypoint-system-input {
+  flex: 1;
+  min-width: 0;
+}
+.lpoint-sep {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Link Type Selector buttons ── */
+.btn-hint {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 400;
+  opacity: 0.65;
+  margin-top: 0.2rem;
+}
+
+/* ── Endpoint Setup (step 1 of route creation) ── */
+.endpoint-block {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.endpoint-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.35rem;
+}
+.endpoint-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* ── EF-Map Paste Section ── */
+.ef-map-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+.ef-map-textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: "Favorit", monospace;
+  font-size: 0.68rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  padding: 0.4rem;
+  min-height: 3rem;
+}
+.ef-map-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.paste-error {
+  font-size: 0.65rem;
+  color: var(--color-error);
+}
+
+/* ── Route Divider ── */
+.route-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.4rem 0;
+}
+.route-divider::before,
+.route-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--color-border);
+}
+.route-divider-text {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ── Remote Browsing Banner ── */
+.remote-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 1rem;
+  background: rgba(0, 204, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 204, 255, 0.3);
+  font-size: 0.72rem;
+}
+.remote-banner-label {
+  color: var(--color-text);
+}
+.remote-banner-label strong {
+  color: #00CCFF;
+}
+.remote-banner-disconnect {
+  background: none;
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
+  font-family: "Favorit", monospace;
+  font-size: 0.68rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.remote-banner-disconnect:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+
+/* ── Data Link Browse Dropdown ── */
+.connection-row-wrap {
+  position: relative;
+}
+.data-link-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0.25rem 0;
+  margin: 0.15rem 0 0.35rem 1.2rem;
+  border-left: 2px solid var(--color-accent);
+}
+.data-link-menu-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.3rem 0.6rem;
+  background: var(--color-surface);
+  border: none;
+  color: var(--color-text);
+  font-family: "Favorit", monospace;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+.data-link-menu-btn:hover {
+  background: var(--color-accent);
+  color: #0B0B0B;
+}
+
+/* ── Map context menu (right-click on node) ── */
+.map-ctx-menu {
+  position: absolute;
+  z-index: 100;
+  background: var(--color-surface, #141414);
+  border: 1px solid rgba(250,250,229,0.12);
+  border-radius: 4px;
+  padding: 0.25rem 0;
+  min-width: 160px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.map-ctx-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--color-text, #FAFAE5);
+  padding: 0.4rem 0.75rem;
+  font-family: "Favorit", monospace;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.map-ctx-item:hover {
+  background: rgba(250,250,229,0.08);
+}
+.map-ctx-danger {
+  color: #FF4444;
+}
+.map-ctx-danger:hover {
+  background: rgba(255,68,68,0.12);
+}
+
+/* ═══ Exchange Tabs ═══ */
+.exchange-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(250,250,229,0.12);
+  margin-bottom: 0.5rem;
+}
+.exchange-tab-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: rgba(250,250,229,0.45);
+  font-family: "Favorit", monospace;
+  font-size: 0.8rem;
+  padding: 0.6rem 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.exchange-tab-btn:hover {
+  color: rgba(250,250,229,0.7);
+}
+.exchange-tab-btn.active {
+  color: #FAFAE5;
+  border-bottom-color: #FAFAE5;
+}
+
+/* ═══ Cross-Swap ═══ */
+.swap-mode-row {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+.swap-mode-btn {
+  flex: 1;
+  background: rgba(250,250,229,0.04);
+  border: 1px solid rgba(250,250,229,0.12);
+  color: rgba(250,250,229,0.5);
+  font-family: "Favorit", monospace;
+  font-size: 0.7rem;
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+}
+.swap-mode-btn:hover {
+  background: rgba(250,250,229,0.08);
+  color: rgba(250,250,229,0.7);
+}
+.swap-mode-btn.active {
+  background: rgba(250,250,229,0.1);
+  border-color: rgba(250,250,229,0.3);
+  color: #FAFAE5;
+}
+.swap-tribe-select {
+  width: 100%;
+  background: rgba(250,250,229,0.04);
+  border: 1px solid rgba(250,250,229,0.12);
+  color: #FAFAE5;
+  font-family: "Favorit", monospace;
+  font-size: 0.75rem;
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+}
+.swap-tribe-select option {
+  background: #1a1a20;
+  color: #FAFAE5;
+}
+.swap-arrow-label {
+  color: rgba(250,250,229,0.4);
+  font-size: 1.2rem;
+}
+
+/* ═══ Tribe Market Board ═══ */
+.tribe-market-board {
+  width: 100%;
+}
+.tribe-market-board h3 {
+  margin-bottom: 0.75rem;
+}
+.tribe-market-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+.tribe-market-table th {
+  text-align: left;
+  color: rgba(250,250,229,0.5);
+  font-weight: 400;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid rgba(250,250,229,0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.65rem;
+}
+.tribe-market-table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid rgba(250,250,229,0.05);
+}
+.tribe-market-row {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.tribe-market-row:hover {
+  background: rgba(250,250,229,0.04);
+}
+.tribe-market-row.selected {
+  background: rgba(250,250,229,0.06);
+}
+.tribe-ticker-cell {
+  font-weight: 600;
+  color: #FAFAE5;
+}
+.tribe-price-cell { color: #FAFAE5; }
+.tribe-ratio-cell { color: rgba(250,250,229,0.7); }
+.tribe-supply-cell { color: rgba(250,250,229,0.6); }
+.tribe-locked-cell { color: rgba(250,250,229,0.6); }
+
+/* Health dot */
+.health-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+.health-dot.healthy { background: #44FF88; }
+.health-dot.warning { background: #FFAA44; }
+.health-dot.critical { background: #FF4444; }
+
+/* Sparkline */
+.sparkline {
+  vertical-align: middle;
+}
+
+/* ═══ Tribe Detail Panel ═══ */
+.tribe-detail-panel {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(250,250,229,0.1);
+  border-radius: 4px;
+  background: rgba(250,250,229,0.02);
+}
+.tribe-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.tribe-detail-header h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #FAFAE5;
+}
+.tribe-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.tribe-detail-stats .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.tribe-detail-stats .stat-label {
+  font-size: 0.6rem;
+  color: rgba(250,250,229,0.5);
+  text-transform: uppercase;
+}
+.tribe-detail-stats .stat-value {
+  font-size: 0.85rem;
+  color: #FAFAE5;
+}
+.tribe-chart-container {
+  margin-top: 0.5rem;
+}
+.tribe-budget-badge {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  background: rgba(68,255,136,0.1);
+  color: #44FF88;
+  border: 1px solid rgba(68,255,136,0.2);
+}
+.tribe-dilution-warning {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 3px;
+  background: rgba(255,68,68,0.08);
+  border: 1px solid rgba(255,68,68,0.2);
+  color: #FF8888;
+  font-size: 0.7rem;
+}
+
+/* ═══ Tribe Limit Orders ═══ */
+.tribe-orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.tribe-order-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(250,250,229,0.08);
+  border-radius: 3px;
+  font-size: 0.7rem;
+}
+.tribe-order-info {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+.tribe-order-pair {
+  color: #FAFAE5;
+  font-weight: 600;
+}
+.tribe-order-qty {
+  color: rgba(250,250,229,0.6);
+}
+.tribe-order-status {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  padding: 0.1rem 0.3rem;
+  border-radius: 2px;
+}
+.tribe-order-status.status-open {
+  color: #44FF88;
+  background: rgba(68,255,136,0.1);
+}
+.tribe-order-status.status-filled {
+  color: #4488FF;
+  background: rgba(68,136,255,0.1);
+}
+.tribe-order-status.status-cancelled {
+  color: rgba(250,250,229,0.35);
+  background: rgba(250,250,229,0.04);
+}
+.tribe-order-cancel {
+  background: none;
+  border: 1px solid rgba(255,68,68,0.3);
+  color: #FF8888;
+  font-family: "Favorit", monospace;
+  font-size: 0.6rem;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tribe-order-cancel:hover {
+  background: rgba(255,68,68,0.1);
+  border-color: rgba(255,68,68,0.5);
+}
+.limit-order-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.limit-order-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.limit-order-row input {
+  flex: 1;
+  min-width: 0;
+}
+.limit-order-arrow {
+  color: rgba(250,250,229,0.4);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════
+   Contracts
+   ═══════════════════════════════════════════ */
+
+/* Operations sub-tabs */
+.ops-sub-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(250,250,229,0.1);
+}
+.ops-sub-tab {
+  background: none;
+  border: none;
+  color: rgba(250,250,229,0.5);
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.ops-sub-tab:hover { color: rgba(250,250,229,0.8); }
+.ops-sub-tab.active {
+  color: rgba(250,250,229,0.95);
+  border-bottom-color: var(--color-accent, #4ecdc4);
+}
+
+/* Contract cards */
+.contract-card {
+  background: rgba(250,250,229,0.04);
+  border: 1px solid rgba(250,250,229,0.08);
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+.contract-card.contract-open { border-left: 3px solid #4ecdc4; }
+.contract-card.contract-accepted { border-left: 3px solid #f0ad4e; }
+.contract-card.contract-completed { border-left: 3px solid #5cb85c; }
+.contract-card.contract-failed { border-left: 3px solid #d9534f; }
+.contract-card.contract-expired { border-left: 3px solid rgba(250,250,229,0.15); }
+.contract-card.contract-cancelled { border-left: 3px solid rgba(250,250,229,0.15); }
+.contract-card.contract-past { opacity: 0.5; }
+
+.contract-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+.contract-header:hover { background: rgba(250,250,229,0.03); }
+
+.contract-budget {
+  font-size: 0.8rem;
+  color: #4ecdc4;
+  font-weight: 600;
+  margin-left: auto;
+}
+.contract-timer {
+  font-size: 0.75rem;
+  color: #f0ad4e;
+  white-space: nowrap;
+}
+.contract-status {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+}
+.status-open { color: #4ecdc4; background: rgba(78,205,196,0.1); }
+.status-accepted { color: #f0ad4e; background: rgba(240,173,78,0.1); }
+.status-completed { color: #5cb85c; background: rgba(92,184,92,0.1); }
+.status-failed { color: #d9534f; background: rgba(217,83,79,0.1); }
+.status-expired { color: rgba(250,250,229,0.35); background: rgba(250,250,229,0.04); }
+.status-cancelled { color: rgba(250,250,229,0.35); background: rgba(250,250,229,0.04); }
+
+.contract-body {
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid rgba(250,250,229,0.06);
+}
+.contract-meta {
+  font-size: 0.75rem;
+  color: rgba(250,250,229,0.5);
+  margin-bottom: 0.5rem;
+}
+.contract-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.contracts-panel {
+  margin-top: 0.5rem;
+}
+.past-contracts {
+  margin-top: 0.75rem;
+}
+.past-contracts summary {
+  cursor: pointer;
+  padding: 0.3rem 0;
+}
+
+/* Modal (contract creation popup) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+.modal-content {
+  background: var(--color-panel-bg, #1a1a2e);
+  border: 1px solid rgba(250,250,229,0.12);
+  border-radius: 8px;
+  padding: 1.25rem;
+  width: min(90vw, 560px);
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.modal-header h3 { margin: 0; }
+.modal-close {
+  background: none;
+  border: none;
+  color: rgba(250,250,229,0.5);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+.modal-close:hover {
+  color: rgba(250,250,229,0.9);
+  background: rgba(250,250,229,0.08);
+}
