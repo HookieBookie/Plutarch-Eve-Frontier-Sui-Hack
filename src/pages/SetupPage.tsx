@@ -53,7 +53,6 @@ export function SetupPage({ onComplete }: SetupPageProps) {
   const [needsNetworkNode, setNeedsNetworkNode] = useState(false);
   const [networkNodeInput, setNetworkNodeInput] = useState("");
   const [networkNodeStatus, setNetworkNodeStatus] = useState<{ type: "info" | "success" | "error"; message: string } | null>(null);
-  const [, setNetworkNodeVerifying] = useState(false);
   const [networkNodeSkipped, setNetworkNodeSkipped] = useState(false);
 
   // ── Location input (required for first-time SSU setup) ──
