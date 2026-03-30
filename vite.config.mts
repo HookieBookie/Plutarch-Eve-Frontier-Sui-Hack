@@ -1185,8 +1185,8 @@ function tribeApiPlugin(tenantId: string): Plugin {
                       const c = getContractById(d.sourceId);
                       if (c && c.status === "accepted") {
                         updateContractStatus(d.sourceId, "completed", { completedAt: Date.now() });
-                        // Return collateral + reward to courier
-                        adjustBalance(tribeId, c.acceptorWallet!, c.budget + c.acceptorDeposit);
+                        // Return collateral + reward to courier in the SOURCE tribe's currency
+                        adjustBalance(d.tribeId, c.acceptorWallet!, c.budget + c.acceptorDeposit);
                         clearContractItemEscrow(d.sourceId);
                       }
                     }
