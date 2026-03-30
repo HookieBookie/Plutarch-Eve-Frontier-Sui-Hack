@@ -698,7 +698,14 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
         return;
       }
 
-      // Verify all items are in ephemeral storage
+      // Detect SSU owner
+      const myCharAddr = character?.characterAddress?.toLowerCase() ?? '';
+      const ssuOwnerAddr = ssuInventory?.ownerId?.toLowerCase() ?? '';
+      const isSsuOwner = myCharAddr && ssuOwnerAddr && myCharAddr === ssuOwnerAddr;
+
+      let usedEphemeral = false;
+
+      // Try ephemeral storage first (non-owner path)
       if (ssuInventory) {
         const myOwnerCapId = character.ownerCapId;
         let userEphemeral = myOwnerCapId
@@ -708,39 +715,73 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
           userEphemeral = ssuInventory.allEphemeral;
         }
 
-        for (const item of itemsToDeposit) {
-          const available = findItemQuantity(userEphemeral, item.typeId, item.itemName);
-          if (available < item.quantity) {
-            setContributeError(
-              `"${item.itemName}" — only ${available} in ephemeral (need ${item.quantity}). ` +
-              `Make sure all package items are in your ephemeral storage at this SSU.`,
-            );
-            return;
+        const allInEphemeral = itemsToDeposit.every((item) =>
+          findItemQuantity(userEphemeral, item.typeId, item.itemName) >= item.quantity,
+        );
+
+        if (allInEphemeral) {
+          usedEphemeral = true;
+          // On-chain: batch escrow all items from ephemeral → open storage
+          const escrowItems = itemsToDeposit
+            .filter((it) => it.typeId > 0)
+            .map((it) => ({ typeId: it.typeId, quantity: it.quantity }));
+
+          if (escrowItems.length > 0) {
+            try {
+              const ok = await escrowEphBatch(
+                character.objectId,
+                character.ownerCapId,
+                escrowItems,
+              );
+              if (!ok) {
+                setContributeError("On-chain batch escrow failed. Please try again.");
+                return;
+              }
+              setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
+            } catch (e) {
+              console.error("[package-deliver] Batch escrow error:", e);
+              setContributeError(`Package delivery failed: ${(e as Error).message}`);
+              return;
+            }
           }
         }
       }
 
-      // On-chain: batch escrow all items from ephemeral → open storage
-      const escrowItems = itemsToDeposit
-        .filter((it) => it.typeId > 0)
-        .map((it) => ({ typeId: it.typeId, quantity: it.quantity }));
+      // SSU owner fallback: items are already in main storage, no on-chain transfer needed
+      if (!usedEphemeral && isSsuOwner && ssuInventory) {
+        const allInMain = itemsToDeposit.every((item) =>
+          findItemQuantity(ssuInventory.mainItems, item.typeId, item.itemName) >= item.quantity,
+        );
 
-      if (escrowItems.length > 0) {
-        try {
-          const ok = await escrowEphBatch(
-            character.objectId,
-            character.ownerCapId,
-            escrowItems,
-          );
-          if (!ok) {
-            setContributeError("On-chain batch escrow failed. Please try again.");
+        if (allInMain) {
+          usedEphemeral = true; // reuse flag to skip error
+        } else {
+          // Check what's missing
+          for (const item of itemsToDeposit) {
+            const available = findItemQuantity(ssuInventory.mainItems, item.typeId, item.itemName);
+            if (available < item.quantity) {
+              setContributeError(
+                `"${item.itemName}" — only ${available} in main storage (need ${item.quantity}).`,
+              );
+              return;
+            }
+          }
+        }
+      }
+
+      if (!usedEphemeral) {
+        // Neither ephemeral nor main storage had the items
+        for (const item of itemsToDeposit) {
+          const ephAvail = ssuInventory
+            ? findItemQuantity(ssuInventory.allEphemeral, item.typeId, item.itemName)
+            : 0;
+          if (ephAvail < item.quantity) {
+            setContributeError(
+              `"${item.itemName}" — only ${ephAvail} in ephemeral (need ${item.quantity}). ` +
+              `Make sure all package items are in your ephemeral storage at this SSU.`,
+            );
             return;
           }
-          setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
-        } catch (e) {
-          console.error("[package-deliver] Batch escrow error:", e);
-          setContributeError(`Package delivery failed: ${(e as Error).message}`);
-          return;
         }
       }
 
@@ -1357,20 +1398,6 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
 
                   return (
                   <>
-                  {/* Package pickup button — one button for all delivery items */}
-                  {isPackageDelivery && hasDeliverMissions && !allDeliverDone && !deliveryInTransit && (
-                    <div style={{ padding: "0.5rem", margin: "0.25rem 0", background: "rgba(100,150,255,0.06)", border: "1px solid rgba(100,150,255,0.15)", textAlign: "center" }}>
-                      <button
-                        className="btn-contribute"
-                        disabled={isPackageClaiming}
-                        style={{ padding: "0.4rem 1.2rem", fontSize: "0.85rem" }}
-                        title="Pick up all package items at once"
-                        onClick={() => handleDeliveryPackageClaim(goal.id)}
-                      >
-                        {isPackageClaiming ? "Claiming…" : "📦 Pick up Package"}
-                      </button>
-                    </div>
-                  )}
                   <div className="rolodex-container">
                     {visibleMissions.map(({ m, i }) => {
                       const reward = rewards[i];
@@ -1464,6 +1491,20 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                       );
                     })}
                   </div>
+                  {/* Package pickup button — below the rolodex, bottom-right */}
+                  {isPackageDelivery && hasDeliverMissions && !allDeliverDone && !deliveryInTransit && (
+                    <div style={{ padding: "0.3rem 0.5rem", textAlign: "right" }}>
+                      <button
+                        className="btn-contribute"
+                        disabled={isPackageClaiming}
+                        style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+                        title="Pick up all package items at once"
+                        onClick={() => handleDeliveryPackageClaim(goal.id)}
+                      >
+                        {isPackageClaiming ? "Picking up…" : "📦 Pick up Package"}
+                      </button>
+                    </div>
+                  )}
                   </>
                   );
                 })()}
@@ -2585,25 +2626,6 @@ function ContractsPanel({
                   </div>
                 )}
 
-                {/* Package pickup button for Deliver contracts with a linked package */}
-                {c.type === "Deliver" && c.delivery?.packageId && isAcceptor && c.status === "accepted" && (() => {
-                  const myCourier = c.couriers?.find((cr) => cr.courierWallet === wallet);
-                  const alreadyClaimed = !!myCourier?.claimDigest;
-                  if (alreadyClaimed) return null;
-                  return (
-                    <div style={{ margin: "0.4rem 0", textAlign: "center" }}>
-                      <button
-                        className="btn-primary"
-                        disabled={!!acting}
-                        onClick={() => act(() => handleContractPackageClaim(c), `pkg-claim-${c.id}`)}
-                        style={{ fontSize: "0.85rem", padding: "0.4rem 1rem" }}
-                      >
-                        {acting === `pkg-claim-${c.id}` ? "Picking up…" : "📦 Pick up Package"}
-                      </button>
-                    </div>
-                  );
-                })()}
-
                 <div className="rolodex-container">
                   {c.missions.map((m) => {
                     const isComplete = m.completedQty >= m.quantity;
@@ -2664,6 +2686,24 @@ function ContractsPanel({
                     );
                   })}
                 </div>
+
+                {c.type === "Deliver" && c.delivery?.packageId && isAcceptor && c.status === "accepted" && (() => {
+                  const myCourier = c.couriers?.find((cr) => cr.courierWallet === wallet);
+                  const alreadyClaimed = !!myCourier?.claimDigest;
+                  if (alreadyClaimed) return null;
+                  return (
+                    <div style={{ padding: "0.3rem 0.5rem", textAlign: "right" }}>
+                      <button
+                        className="btn-contribute"
+                        disabled={!!acting}
+                        onClick={() => act(() => handleContractPackageClaim(c), `pkg-claim-${c.id}`)}
+                        style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+                      >
+                        {acting === `pkg-claim-${c.id}` ? "Picking up…" : "📦 Pick up Package"}
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 <div className="contract-actions">
                   {isOpen && isMine && (
