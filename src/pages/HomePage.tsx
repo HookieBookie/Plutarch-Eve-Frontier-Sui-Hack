@@ -17,7 +17,7 @@ import { computeTieredRewards, parseMissionDisplay, decomposeConstruct, decompos
 import { MissionIcon } from "../components/ItemIcon";
 import { useWings } from "../hooks/useWings";
 import { useMembers } from "../hooks/useMembers";
-import { useEscrowFromEphemeral, useClaim, useTrade, useClaimBatch, useReleaseBatch } from "../hooks/useEphemeralTransfer";
+import { useEscrowFromEphemeral, useClaim, useTrade, useReleaseBatch, usePickupBatch } from "../hooks/useEphemeralTransfer";
 import { useAllocations } from "../hooks/useAllocations";
 import { Select } from "../components/Select";
 import { useTerritoryData } from "../hooks/useTerritoryData";
@@ -87,8 +87,8 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
   // On-chain ephemeral storage transfer hooks
   const { escrow: escrowToOpen } = useEscrowFromEphemeral(ssuId || undefined);
   const { claim: onChainClaim } = useClaim(ssuId || undefined);
-  const { claimBatch: onChainClaimBatch } = useClaimBatch(ssuId || undefined);
   const { releaseBatch: onChainReleaseBatch } = useReleaseBatch(ssuId || undefined);
+  const { pickupBatch: onChainPickupBatch } = usePickupBatch(ssuId || undefined);
 
   // Corporate inventory (off-chain bookkeeping on open storage)
   const { items: corpItems, releaseFromCorpStorage } = useCorporateInventory(ssuId || "", tribeId || "");
@@ -354,34 +354,20 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
       let claimDigest: string | null = null;
 
       if (!isSsuOwner && p.mission.typeId && p.mission.typeId > 0) {
-        // Step 1: If items needed from corporate, release open → main first
-        if (fromCorp > 0) {
-          try {
-            const ok = await onChainReleaseBatch(
-              character.objectId, character.ownerCapId,
-              [{ typeId: p.mission.typeId, quantity: fromCorp }],
-            );
-            if (!ok) { setContributeError("Failed to release items from corporate storage."); return; }
-            // Update corporate inventory off-chain
-            await releaseFromCorpStorage(p.mission.typeId, itemName ?? "", fromCorp);
-          } catch (e) {
-            console.error("[delivery-claim] Release from corporate error:", e);
-            setContributeError(`Corporate release failed: ${(e as Error).message}`);
-            return;
-          }
-        }
-
-        // Step 2: Claim all items from main → ephemeral
+        // Single PTB: release corporate items (open→main) + claim (main→ephemeral)
+        const releaseItems = fromCorp > 0 ? [{ typeId: p.mission.typeId, quantity: fromCorp }] : [];
+        const claimItems = [{ typeId: p.mission.typeId, quantity: claimQty }];
         try {
-          claimDigest = await onChainClaim(
+          claimDigest = await onChainPickupBatch(
             character.objectId, character.ownerCapId,
-            p.mission.typeId, claimQty,
+            releaseItems, claimItems,
           );
-          if (!claimDigest) { setContributeError("On-chain item claim failed. Please try again."); return; }
+          if (!claimDigest) { setContributeError("On-chain pickup failed. Please try again."); return; }
+          if (fromCorp > 0) await releaseFromCorpStorage(p.mission.typeId, itemName ?? "", fromCorp);
           setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
         } catch (e) {
-          console.error("[delivery-claim] On-chain claim error:", e);
-          setContributeError(`Claim failed: ${(e as Error).message}`);
+          console.error("[delivery-claim] Pickup error:", e);
+          setContributeError(`Pickup failed: ${(e as Error).message}`);
           return;
         }
       } else if (isSsuOwner && fromCorp > 0) {
@@ -494,38 +480,23 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
       let claimDigest: string | null = null;
 
       if (!isSsuOwner) {
-        // Step 1: Release corporate items open → main (batch)
-        if (corpReleases.length > 0) {
-          try {
-            const ok = await onChainReleaseBatch(
-              character.objectId, character.ownerCapId,
-              corpReleases.map((r) => ({ typeId: r.typeId, quantity: r.quantity })),
-            );
-            if (!ok) { setContributeError("Failed to release items from corporate storage."); return; }
-            for (const r of corpReleases) {
-              await releaseFromCorpStorage(r.typeId, r.itemName, r.quantity);
-            }
-          } catch (e) {
-            console.error("[package-claim] Release error:", e);
-            setContributeError(`Corporate release failed: ${(e as Error).message}`);
-            return;
+        // Single PTB: release corporate items (open→main) + claim all (main→ephemeral)
+        const releaseItems = corpReleases.map((r) => ({ typeId: r.typeId, quantity: r.quantity }));
+        const claimItems = itemsToClaim.map((it) => ({ typeId: it.typeId, quantity: it.quantity }));
+        try {
+          claimDigest = await onChainPickupBatch(
+            character.objectId, character.ownerCapId,
+            releaseItems, claimItems,
+          );
+          if (!claimDigest) { setContributeError("On-chain package pickup failed. Please try again."); return; }
+          for (const r of corpReleases) {
+            await releaseFromCorpStorage(r.typeId, r.itemName, r.quantity);
           }
-        }
-
-        // Step 2: Batch claim all items main → ephemeral
-        if (itemsToClaim.length > 0) {
-          try {
-            claimDigest = await onChainClaimBatch(
-              character.objectId, character.ownerCapId,
-              itemsToClaim.map((it) => ({ typeId: it.typeId, quantity: it.quantity })),
-            );
-            if (!claimDigest) { setContributeError("On-chain batch claim failed. Please try again."); return; }
-            setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
-          } catch (e) {
-            console.error("[package-claim] Batch claim error:", e);
-            setContributeError(`Batch claim failed: ${(e as Error).message}`);
-            return;
-          }
+          setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
+        } catch (e) {
+          console.error("[package-claim] Pickup error:", e);
+          setContributeError(`Package pickup failed: ${(e as Error).message}`);
+          return;
         }
       } else if (corpReleases.length > 0) {
         // SSU owner: release corporate items back to main
@@ -1420,9 +1391,8 @@ function ContractsPanel({
   // On-chain transfer hooks for contract mission progression
   const { escrow: escrowToOpenInner } = useEscrowFromEphemeral(ssuId || undefined);
   const { trade: onChainTrade } = useTrade(ssuId || undefined);
-  const { claim: onChainClaimCp } = useClaim(ssuId || undefined);
-  const { claimBatch: onChainClaimBatchCp } = useClaimBatch(ssuId || undefined);
   const { releaseBatch: onChainReleaseBatchCp } = useReleaseBatch(ssuId || undefined);
+  const { pickupBatch: onChainPickupBatchCp } = usePickupBatch(ssuId || undefined);
   const { claimDelivery: claimDeliveryCp } = useDeliveryActions(ssuId || "", tribeId || "");
   const { items: corpItemsCp, releaseFromCorpStorage: releaseFromCorpStorageCp } = useCorporateInventory(ssuId || "", tribeId || "");
 
@@ -1461,26 +1431,14 @@ function ContractsPanel({
       let releasedFromCorp = false;
 
       // Fall back to corporate (open) storage if not in main
+      let fromCorp = 0;
       if (mainAvailable <= 0 && m.typeId && m.typeId > 0) {
         const openAvailable = findItemQuantity(ssuInventory.openStorageItems ?? [], m.typeId, itemName);
         const corpEntry = corpItemsCp?.find((ci: any) => ci.typeId === m.typeId);
         if (openAvailable > 0 || (corpEntry && corpEntry.quantity > 0)) {
-          const releaseQty = Math.min(openAvailable, remaining);
-          if (releaseQty > 0) {
-            const relDigest = await onChainReleaseBatchCp(
-              charProp.objectId,
-              charProp.ownerCapId,
-              [{ typeId: m.typeId, quantity: releaseQty }],
-            );
-            if (!relDigest) {
-              setContractContribError("Failed to release items from corporate storage. Please try again.");
-              return;
-            }
-            // Update corporate inventory off-chain
-            if (corpEntry) {
-              await releaseFromCorpStorageCp(m.typeId, itemName ?? `type-${m.typeId}`, releaseQty);
-            }
-            mainAvailable = releaseQty;
+          fromCorp = Math.min(openAvailable, remaining);
+          if (fromCorp > 0) {
+            mainAvailable = fromCorp;
             releasedFromCorp = true;
           }
         }
@@ -1496,22 +1454,42 @@ function ContractsPanel({
 
       let claimDigest: string | null = null;
       if (!isSsuOwner && m.typeId && m.typeId > 0) {
+        // Single PTB: release corporate (open→main) + claim (main→ephemeral)
+        const releaseItems = fromCorp > 0 ? [{ typeId: m.typeId, quantity: fromCorp }] : [];
+        const claimItems = [{ typeId: m.typeId, quantity: claimQty }];
         try {
-          claimDigest = await onChainClaimCp(
+          claimDigest = await onChainPickupBatchCp(
             charProp.objectId,
             charProp.ownerCapId,
-            m.typeId,
-            claimQty,
+            releaseItems, claimItems,
           );
           if (!claimDigest) {
-            setContractContribError("On-chain item claim failed. Please try again.");
+            setContractContribError("On-chain pickup failed. Please try again.");
             return;
+          }
+          if (releasedFromCorp) {
+            const corpEntry = corpItemsCp?.find((ci: any) => ci.typeId === m.typeId);
+            if (corpEntry) await releaseFromCorpStorageCp(m.typeId, itemName ?? `type-${m.typeId}`, fromCorp);
           }
           setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
         } catch (e) {
-          console.error("[contract-delivery-claim] On-chain claim error:", e);
-          setContractContribError(`Claim failed: ${(e as Error).message}`);
+          console.error("[contract-delivery-claim] Pickup error:", e);
+          setContractContribError(`Pickup failed: ${(e as Error).message}`);
           return;
+        }
+      } else if (isSsuOwner && releasedFromCorp && m.typeId && m.typeId > 0) {
+        // Owner: just release corporate items to main
+        try {
+          const ok = await onChainReleaseBatchCp(
+            charProp.objectId, charProp.ownerCapId,
+            [{ typeId: m.typeId, quantity: fromCorp }],
+          );
+          if (ok) {
+            const corpEntry = corpItemsCp?.find((ci: any) => ci.typeId === m.typeId);
+            if (corpEntry) await releaseFromCorpStorageCp(m.typeId, itemName ?? `type-${m.typeId}`, fromCorp);
+          }
+        } catch (e) {
+          console.warn("[contract-delivery-claim] Owner release error:", e);
         }
       }
 
@@ -1596,41 +1574,41 @@ function ContractsPanel({
         return;
       }
 
-      // Step 1: Release corporate items open→main
-      if (toRelease.length > 0) {
-        const relDigest = await onChainReleaseBatchCp(
-          charProp.objectId,
-          charProp.ownerCapId,
-          toRelease,
-        );
-        if (!relDigest) {
-          setContractContribError("Failed to release items from corporate storage.");
-          return;
-        }
-        // Update corporate inventory off-chain
-        for (const cr of corpReleases) {
-          await releaseFromCorpStorageCp(cr.typeId, cr.itemName, cr.quantity);
-        }
-      }
-
-      // Step 2: Batch claim main→ephemeral (skip for SSU owner)
+      // Single PTB: release corporate (open→main) + claim all (main→ephemeral)
       let claimDigest: string | null = null;
       if (!isSsuOwner) {
         try {
-          claimDigest = await onChainClaimBatchCp(
+          claimDigest = await onChainPickupBatchCp(
             charProp.objectId,
             charProp.ownerCapId,
-            toClaim,
+            toRelease, toClaim,
           );
           if (!claimDigest) {
-            setContractContribError("On-chain batch claim failed. Please try again.");
+            setContractContribError("On-chain package pickup failed. Please try again.");
             return;
+          }
+          for (const cr of corpReleases) {
+            await releaseFromCorpStorageCp(cr.typeId, cr.itemName, cr.quantity);
           }
           setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
         } catch (e) {
-          console.error("[contract-package-claim] Batch claim error:", e);
-          setContractContribError(`Batch claim failed: ${(e as Error).message}`);
+          console.error("[contract-package-claim] Pickup error:", e);
+          setContractContribError(`Package pickup failed: ${(e as Error).message}`);
           return;
+        }
+      } else if (toRelease.length > 0) {
+        // SSU owner: release corporate to main
+        try {
+          const ok = await onChainReleaseBatchCp(
+            charProp.objectId, charProp.ownerCapId, toRelease,
+          );
+          if (ok) {
+            for (const cr of corpReleases) {
+              await releaseFromCorpStorageCp(cr.typeId, cr.itemName, cr.quantity);
+            }
+          }
+        } catch (e) {
+          console.warn("[contract-package-claim] Owner release error:", e);
         }
       }
 
