@@ -16,6 +16,7 @@ import {
   corporateInventory,
 } from "./schema";
 import { initLocationKey, encryptField, decryptField } from "./crypto";
+import { seedDeployments } from "./seed";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -639,6 +640,9 @@ export function initDb(dappsDir: string, tenant?: string): BetterSQLite3Database
 
   // Clean up old "SSU 0x..." names in ssu_registrations and network_map_nodes
   migrateOldSsuNames();
+
+  // Seed known tribe deployment records so they survive DB resets
+  seedDeployments(_sqlite!);
 
   return _db;
 }
