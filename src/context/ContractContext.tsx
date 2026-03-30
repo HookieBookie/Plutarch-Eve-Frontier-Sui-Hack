@@ -56,6 +56,7 @@ export interface Contract {
     collateral: number;
     timerMs: number;
     status: string;
+    packageId?: string;
   } | null;
   couriers?: {
     courierWallet: string;

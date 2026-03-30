@@ -17,7 +17,7 @@ import { computeTieredRewards, parseMissionDisplay, decomposeConstruct, decompos
 import { MissionIcon } from "../components/ItemIcon";
 import { useWings } from "../hooks/useWings";
 import { useMembers } from "../hooks/useMembers";
-import { useEscrowFromEphemeral, useClaim, useTrade } from "../hooks/useEphemeralTransfer";
+import { useEscrowFromEphemeral, useClaim, useTrade, useClaimBatch, useReleaseBatch } from "../hooks/useEphemeralTransfer";
 import { useAllocations } from "../hooks/useAllocations";
 import { Select } from "../components/Select";
 import { useTerritoryData } from "../hooks/useTerritoryData";
@@ -30,6 +30,7 @@ import { GOAL_TYPE_LABELS } from "../components/tribe/OperationsTab";
 import { useNetworkSettings } from "../hooks/useNetworkSettings";
 import { useNetworkNodeFuel } from "../hooks/useNetworkNodeFuel";
 import { FuelDisplay } from "../components/FuelDisplay";
+import { useCorporateInventory } from "../hooks/useCorporateInventory";
 
 interface HomePageProps {
   /** Categories hidden during remote browsing (e.g. ["goals", "inventory"]) */
@@ -86,6 +87,11 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
   // On-chain ephemeral storage transfer hooks
   const { escrow: escrowToOpen } = useEscrowFromEphemeral(ssuId || undefined);
   const { claim: onChainClaim } = useClaim(ssuId || undefined);
+  const { claimBatch: onChainClaimBatch } = useClaimBatch(ssuId || undefined);
+  const { releaseBatch: onChainReleaseBatch } = useReleaseBatch(ssuId || undefined);
+
+  // Corporate inventory (off-chain bookkeeping on open storage)
+  const { items: corpItems, releaseFromCorpStorage } = useCorporateInventory(ssuId || "", tribeId || "");
 
   // Delivery actions & incoming deliveries
   const { acceptDelivery, progressDelivery } = useDeliveryActions(ssuId || "", tribeId || "");
@@ -301,9 +307,9 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
   }
 
   /**
-   * Called when user confirms the delivery quantity prompt.
-   * Non-owners: claims items from main storage → user's ephemeral, records delivery acceptance.
-   * SSU owners: skip on-chain claim (items are already in their own storage).
+   * Called when user confirms the delivery quantity prompt (single-item deliveries).
+   * Checks main storage first, then falls back to corporate/open storage.
+   * Non-owners: claims items → user's ephemeral. SSU owners: skip on-chain claim.
    */
   async function handleDeliveryClaim() {
     const p = deliveryPrompt;
@@ -321,41 +327,73 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
         return;
       }
 
-      // Check SSU main storage for the item
       const itemName = extractItemName(p.mission.description);
       const mainAvailable = findItemQuantity(ssuInventory.mainItems, p.mission.typeId, itemName);
-      if (mainAvailable < claimQty) {
+
+      // Check corporate/open storage as fallback
+      const openAvailable = findItemQuantity(ssuInventory.openStorageItems, p.mission.typeId, itemName);
+      const corpItem = corpItems.find((c) => c.typeId === p.mission.typeId);
+      const corpAvailable = Math.min(openAvailable, corpItem?.quantity ?? 0);
+      const totalAvailable = mainAvailable + corpAvailable;
+
+      if (totalAvailable < claimQty) {
         setContributeError(
-          `Only ${mainAvailable} available in main storage (need ${claimQty}).`,
+          `Only ${totalAvailable} available (${mainAvailable} main + ${corpAvailable} corporate). Need ${claimQty}.`,
         );
         return;
       }
 
-      // Determine if current user is the SSU owner
       const myCharAddr = character?.characterAddress?.toLowerCase() ?? '';
       const ssuOwnerAddr = ssuInventory.ownerId?.toLowerCase() ?? '';
       const isSsuOwner = myCharAddr && ssuOwnerAddr && myCharAddr === ssuOwnerAddr;
 
-      // On-chain: claim_supply (main → user's ephemeral)
-      // Skip for SSU owners — items are in their own main storage already.
+      // Determine how many to take from main vs corporate
+      const fromMain = Math.min(mainAvailable, claimQty);
+      const fromCorp = claimQty - fromMain;
+
       let claimDigest: string | null = null;
+
       if (!isSsuOwner && p.mission.typeId && p.mission.typeId > 0) {
-        try {
-          claimDigest = await onChainClaim(
-            character.objectId,
-            character.ownerCapId,
-            p.mission.typeId,
-            claimQty,
-          );
-          if (!claimDigest) {
-            setContributeError("On-chain item claim failed. Please try again.");
+        // Step 1: If items needed from corporate, release open → main first
+        if (fromCorp > 0) {
+          try {
+            const ok = await onChainReleaseBatch(
+              character.objectId, character.ownerCapId,
+              [{ typeId: p.mission.typeId, quantity: fromCorp }],
+            );
+            if (!ok) { setContributeError("Failed to release items from corporate storage."); return; }
+            // Update corporate inventory off-chain
+            await releaseFromCorpStorage(p.mission.typeId, itemName ?? "", fromCorp);
+          } catch (e) {
+            console.error("[delivery-claim] Release from corporate error:", e);
+            setContributeError(`Corporate release failed: ${(e as Error).message}`);
             return;
           }
+        }
+
+        // Step 2: Claim all items from main → ephemeral
+        try {
+          claimDigest = await onChainClaim(
+            character.objectId, character.ownerCapId,
+            p.mission.typeId, claimQty,
+          );
+          if (!claimDigest) { setContributeError("On-chain item claim failed. Please try again."); return; }
           setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
         } catch (e) {
           console.error("[delivery-claim] On-chain claim error:", e);
           setContributeError(`Claim failed: ${(e as Error).message}`);
           return;
+        }
+      } else if (isSsuOwner && fromCorp > 0) {
+        // SSU owner: just release corporate items back to main
+        try {
+          const ok = await onChainReleaseBatch(
+            character.objectId, character.ownerCapId,
+            [{ typeId: p.mission.typeId!, quantity: fromCorp }],
+          );
+          if (ok) await releaseFromCorpStorage(p.mission.typeId!, itemName ?? "", fromCorp);
+        } catch (e) {
+          console.warn("[delivery-claim] Owner release error:", e);
         }
       }
 
@@ -376,12 +414,147 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
         }
       }
 
-      // Don't complete the mission yet — rewards are distributed server-side
-      // when the destination SSU confirms full delivery via action=progress.
-
       setContributeError(null);
     } catch (err) {
       console.error("[handleDeliveryClaim] error:", err);
+      setContributeError(`Error: ${(err as Error).message || "Unknown error"}`);
+    } finally {
+      setContributing(null);
+    }
+  }
+
+  /**
+   * Batch-claim ALL items for a package-linked delivery goal at once.
+   * Checks main + corporate/open storage for each item, does release_to_main if needed,
+   * then batch claim_supply for all items in a single PTB.
+   */
+  async function handleDeliveryPackageClaim(goalId: number) {
+    const key = `package-${goalId}`;
+    setContributing(key);
+    setContributeError(null);
+    try {
+      if (!ssuInventory || !character?.objectId || !character?.ownerCapId) {
+        setContributeError("Character or SSU data not loaded. Please refresh.");
+        return;
+      }
+      if (!account?.address) { setContributeError("Wallet not connected."); return; }
+
+      const goal = goals.find((g) => g.id === goalId);
+      if (!goal) { setContributeError("Goal not found."); return; }
+
+      // Find the linked delivery
+      let delId = goal.deliveryId;
+      const delivery = (outgoingDeliveries ?? []).find(
+        (d) => d.id === delId || (d.sourceType === "goal" && d.sourceId === String(goalId)),
+      );
+      if (!delivery) { setContributeError("No linked delivery found for this goal."); return; }
+      delId = delivery.id;
+
+      // Collect all DELIVER missions and their remaining quantities
+      const deliverMissions = goal.missions
+        .map((m, i) => ({ ...m, idx: i, done: goal.completed.get(i) ?? 0 }))
+        .filter((m) => m.phase === "DELIVER" && m.done < m.quantity);
+
+      if (deliverMissions.length === 0) { setContributeError("All delivery items already picked up."); return; }
+
+      const myCharAddr = character.characterAddress?.toLowerCase() ?? '';
+      const ssuOwnerAddr = ssuInventory.ownerId?.toLowerCase() ?? '';
+      const isSsuOwner = myCharAddr && ssuOwnerAddr && myCharAddr === ssuOwnerAddr;
+
+      // For each item, determine source (main vs corporate) and quantity
+      const itemsToClaim: { typeId: number; quantity: number; itemName: string }[] = [];
+      const corpReleases: { typeId: number; quantity: number; itemName: string }[] = [];
+
+      for (const m of deliverMissions) {
+        const remaining = m.quantity - m.done;
+        const itemName = extractItemName(m.description) ?? "";
+        const mainQty = findItemQuantity(ssuInventory.mainItems, m.typeId, itemName);
+        const openQty = findItemQuantity(ssuInventory.openStorageItems, m.typeId, itemName);
+        const corpItem = corpItems.find((c) => c.typeId === m.typeId);
+        const corpQty = Math.min(openQty, corpItem?.quantity ?? 0);
+        const totalQty = mainQty + corpQty;
+
+        if (totalQty < remaining) {
+          setContributeError(
+            `"${itemName || `type #${m.typeId}`}" — only ${totalQty} available (need ${remaining}).`,
+          );
+          return;
+        }
+
+        const fromMain = Math.min(mainQty, remaining);
+        const fromCorp = remaining - fromMain;
+        if (fromCorp > 0) {
+          corpReleases.push({ typeId: m.typeId!, quantity: fromCorp, itemName });
+        }
+        if (m.typeId && m.typeId > 0) {
+          itemsToClaim.push({ typeId: m.typeId, quantity: remaining, itemName });
+        }
+      }
+
+      let claimDigest: string | null = null;
+
+      if (!isSsuOwner) {
+        // Step 1: Release corporate items open → main (batch)
+        if (corpReleases.length > 0) {
+          try {
+            const ok = await onChainReleaseBatch(
+              character.objectId, character.ownerCapId,
+              corpReleases.map((r) => ({ typeId: r.typeId, quantity: r.quantity })),
+            );
+            if (!ok) { setContributeError("Failed to release items from corporate storage."); return; }
+            for (const r of corpReleases) {
+              await releaseFromCorpStorage(r.typeId, r.itemName, r.quantity);
+            }
+          } catch (e) {
+            console.error("[package-claim] Release error:", e);
+            setContributeError(`Corporate release failed: ${(e as Error).message}`);
+            return;
+          }
+        }
+
+        // Step 2: Batch claim all items main → ephemeral
+        if (itemsToClaim.length > 0) {
+          try {
+            claimDigest = await onChainClaimBatch(
+              character.objectId, character.ownerCapId,
+              itemsToClaim.map((it) => ({ typeId: it.typeId, quantity: it.quantity })),
+            );
+            if (!claimDigest) { setContributeError("On-chain batch claim failed. Please try again."); return; }
+            setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
+          } catch (e) {
+            console.error("[package-claim] Batch claim error:", e);
+            setContributeError(`Batch claim failed: ${(e as Error).message}`);
+            return;
+          }
+        }
+      } else if (corpReleases.length > 0) {
+        // SSU owner: release corporate items back to main
+        try {
+          const ok = await onChainReleaseBatch(
+            character.objectId, character.ownerCapId,
+            corpReleases.map((r) => ({ typeId: r.typeId, quantity: r.quantity })),
+          );
+          if (ok) {
+            for (const r of corpReleases) {
+              await releaseFromCorpStorage(r.typeId, r.itemName, r.quantity);
+            }
+          }
+        } catch (e) {
+          console.warn("[package-claim] Owner release error:", e);
+        }
+      }
+
+      // Off-chain: accept the delivery
+      try {
+        await acceptDelivery(delId!, account.address, character.name ?? "Unknown", claimDigest ?? undefined);
+      } catch (e) {
+        console.warn("[package-claim] Failed to accept delivery off-chain:", e);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] });
+      setContributeError(null);
+    } catch (err) {
+      console.error("[handleDeliveryPackageClaim] error:", err);
       setContributeError(`Error: ${(err as Error).message || "Unknown error"}`);
     } finally {
       setContributing(null);
@@ -991,7 +1164,38 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                   )}
                 </div>
 
-                {isExpanded && (
+                {isExpanded && (() => {
+                  // Check if this is a package-linked delivery goal
+                  const goalDelivery = (outgoingDeliveries ?? []).find(
+                    (d) => d.sourceType === "goal" && d.sourceId === String(goal.id),
+                  );
+                  const isPackageDelivery = !!goalDelivery?.packageId;
+                  const hasDeliverMissions = goal.missions.some((m) => m.phase === "DELIVER");
+                  const allDeliverDone = hasDeliverMissions && goal.missions
+                    .filter((m) => m.phase === "DELIVER")
+                    .every((m) => {
+                      const idx = goal.missions.indexOf(m);
+                      return (goal.completed.get(idx) ?? 0) >= m.quantity;
+                    });
+                  const isPackageClaiming = contributing === `package-${goal.id}`;
+                  const deliveryInTransit = goalDelivery?.status === "in-transit";
+
+                  return (
+                  <>
+                  {/* Package pickup button — one button for all delivery items */}
+                  {isPackageDelivery && hasDeliverMissions && !allDeliverDone && !deliveryInTransit && (
+                    <div style={{ padding: "0.5rem", margin: "0.25rem 0", background: "rgba(100,150,255,0.06)", border: "1px solid rgba(100,150,255,0.15)", textAlign: "center" }}>
+                      <button
+                        className="btn-contribute"
+                        disabled={isPackageClaiming}
+                        style={{ padding: "0.4rem 1.2rem", fontSize: "0.85rem" }}
+                        title="Pick up all package items at once"
+                        onClick={() => handleDeliveryPackageClaim(goal.id)}
+                      >
+                        {isPackageClaiming ? "Claiming…" : "📦 Pick up Package"}
+                      </button>
+                    </div>
+                  )}
                   <div className="rolodex-container">
                     {visibleMissions.map(({ m, i }) => {
                       const reward = rewards[i];
@@ -1058,7 +1262,7 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                               ? `In transit — ${linkedDelivery!.couriers.filter((c) => c.status === "in-transit").length} courier(s) active`
                               : display.requirement}
                           </div>
-                          {!isComplete && !isDeliveryInTransit && (
+                          {!isComplete && !isDeliveryInTransit && !(isPackageDelivery && m.phase === "DELIVER") && (
                             <div className="rc-controls">
                               {missionInputs.length > 0 && (
                                 <button
@@ -1085,7 +1289,9 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
                       );
                     })}
                   </div>
-                )}
+                  </>
+                  );
+                })()}
               </div>
             );
           })}
@@ -1215,11 +1421,16 @@ function ContractsPanel({
   const { escrow: escrowToOpenInner } = useEscrowFromEphemeral(ssuId || undefined);
   const { trade: onChainTrade } = useTrade(ssuId || undefined);
   const { claim: onChainClaimCp } = useClaim(ssuId || undefined);
+  const { claimBatch: onChainClaimBatchCp } = useClaimBatch(ssuId || undefined);
+  const { releaseBatch: onChainReleaseBatchCp } = useReleaseBatch(ssuId || undefined);
   const { claimDelivery: claimDeliveryCp } = useDeliveryActions(ssuId || "", tribeId || "");
+  const { items: corpItemsCp, releaseFromCorpStorage: releaseFromCorpStorageCp } = useCorporateInventory(ssuId || "", tribeId || "");
 
   /**
    * Handle Deliver contract claim: pick up items at the source SSU.
-   * Claims items from main storage → user's ephemeral, then records claim digest.
+   * Checks main storage first, falls back to corporate (open) storage.
+   * For non-owners: release open→main then claim main→ephemeral.
+   * For owners: release open→main (items stay accessible).
    */
   async function handleContractDeliveryClaim(c: Contract, m: import("../context/ContractContext").ContractMission) {
     setContractContribError(null);
@@ -1240,21 +1451,48 @@ function ContractsPanel({
       const remaining = m.quantity - m.completedQty;
       if (remaining <= 0) return;
 
-      // Check SSU main storage for the item
       const itemName = extractItemName(m.description);
-      const mainAvailable = findItemQuantity(ssuInventory.mainItems, m.typeId ?? undefined, itemName);
+      const myCharAddr = charProp.objectId?.toLowerCase() ?? '';
+      const ssuOwnerAddr = ssuInventory.ownerId?.toLowerCase() ?? '';
+      const isSsuOwner = myCharAddr && ssuOwnerAddr && myCharAddr === ssuOwnerAddr;
+
+      // Check main storage first
+      let mainAvailable = findItemQuantity(ssuInventory.mainItems, m.typeId ?? undefined, itemName);
+      let releasedFromCorp = false;
+
+      // Fall back to corporate (open) storage if not in main
+      if (mainAvailable <= 0 && m.typeId && m.typeId > 0) {
+        const openAvailable = findItemQuantity(ssuInventory.openStorageItems ?? [], m.typeId, itemName);
+        const corpEntry = corpItemsCp?.find((ci: any) => ci.typeId === m.typeId);
+        if (openAvailable > 0 || (corpEntry && corpEntry.quantity > 0)) {
+          const releaseQty = Math.min(openAvailable, remaining);
+          if (releaseQty > 0) {
+            const relDigest = await onChainReleaseBatchCp(
+              charProp.objectId,
+              charProp.ownerCapId,
+              [{ typeId: m.typeId, quantity: releaseQty }],
+            );
+            if (!relDigest) {
+              setContractContribError("Failed to release items from corporate storage. Please try again.");
+              return;
+            }
+            // Update corporate inventory off-chain
+            if (corpEntry) {
+              await releaseFromCorpStorageCp(m.typeId, itemName ?? `type-${m.typeId}`, releaseQty);
+            }
+            mainAvailable = releaseQty;
+            releasedFromCorp = true;
+          }
+        }
+      }
+
       if (mainAvailable <= 0) {
         const what = itemName ?? `type #${m.typeId}`;
-        setContractContribError(`"${what}" not found in SSU main storage. Nothing to pick up.`);
+        setContractContribError(`"${what}" not found in SSU storage. Nothing to pick up.`);
         return;
       }
 
       const claimQty = Math.min(mainAvailable, remaining);
-
-      // Determine if current user is the SSU owner (skip on-chain for owner)
-      const myCharAddr = charProp.objectId?.toLowerCase() ?? '';
-      const ssuOwnerAddr = ssuInventory.ownerId?.toLowerCase() ?? '';
-      const isSsuOwner = myCharAddr && ssuOwnerAddr && myCharAddr === ssuOwnerAddr;
 
       let claimDigest: string | null = null;
       if (!isSsuOwner && m.typeId && m.typeId > 0) {
@@ -1287,11 +1525,130 @@ function ContractsPanel({
         }
       }
 
-      // Refresh contracts to pick up updated courier data
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      if (releasedFromCorp) queryClient.invalidateQueries({ queryKey: ["corporate-inventory"] });
       setContractContribError(null);
     } catch (err) {
       console.error("[handleContractDeliveryClaim] error:", err);
+      setContractContribError(`Error: ${(err as Error).message || "Unknown error"}`);
+    }
+  }
+
+  /**
+   * Handle Deliver contract batch claim: pick up ALL package items at once.
+   * For non-owners: batch release open→main then batch claim main→ephemeral.
+   */
+  async function handleContractPackageClaim(c: Contract) {
+    setContractContribError(null);
+    try {
+      if (!ssuInventory) {
+        setContractContribError("SSU inventory not loaded yet. Click ↻ Refresh and try again.");
+        return;
+      }
+      if (!charProp?.objectId || !charProp?.ownerCapId) {
+        setContractContribError("Character data not loaded. Please reconnect your wallet.");
+        return;
+      }
+      if (!c.delivery?.id) {
+        setContractContribError("No linked delivery record found for this contract.");
+        return;
+      }
+
+      const myCharAddr = charProp.objectId?.toLowerCase() ?? '';
+      const ssuOwnerAddr = ssuInventory.ownerId?.toLowerCase() ?? '';
+      const isSsuOwner = myCharAddr && ssuOwnerAddr && myCharAddr === ssuOwnerAddr;
+
+      // Collect all delivery items and figure out where each lives
+      const toRelease: { typeId: number; quantity: number }[] = [];
+      const toClaim: { typeId: number; quantity: number }[] = [];
+      const corpReleases: { typeId: number; itemName: string; quantity: number }[] = [];
+
+      for (const m of c.missions) {
+        if (m.phase !== "DELIVER") continue;
+        const remaining = m.quantity - m.completedQty;
+        if (remaining <= 0 || !m.typeId || m.typeId <= 0) continue;
+
+        const itemName = extractItemName(m.description);
+        let mainQty = findItemQuantity(ssuInventory.mainItems, m.typeId, itemName);
+
+        // Check corporate/open storage if not enough in main
+        if (mainQty < remaining) {
+          const openQty = findItemQuantity(ssuInventory.openStorageItems ?? [], m.typeId, itemName);
+          const corpEntry = corpItemsCp?.find((ci: any) => ci.typeId === m.typeId);
+          const releaseQty = Math.min(openQty, remaining - mainQty);
+          if (releaseQty > 0) {
+            toRelease.push({ typeId: m.typeId, quantity: releaseQty });
+            if (corpEntry) {
+              corpReleases.push({ typeId: m.typeId, itemName: itemName ?? `type-${m.typeId}`, quantity: releaseQty });
+            }
+            mainQty += releaseQty;
+          }
+        }
+
+        const claimQty = Math.min(mainQty, remaining);
+        if (claimQty > 0) {
+          toClaim.push({ typeId: m.typeId, quantity: claimQty });
+        }
+      }
+
+      if (toClaim.length === 0) {
+        setContractContribError("No items available to pick up in SSU storage.");
+        return;
+      }
+
+      // Step 1: Release corporate items open→main
+      if (toRelease.length > 0) {
+        const relDigest = await onChainReleaseBatchCp(
+          charProp.objectId,
+          charProp.ownerCapId,
+          toRelease,
+        );
+        if (!relDigest) {
+          setContractContribError("Failed to release items from corporate storage.");
+          return;
+        }
+        // Update corporate inventory off-chain
+        for (const cr of corpReleases) {
+          await releaseFromCorpStorageCp(cr.typeId, cr.itemName, cr.quantity);
+        }
+      }
+
+      // Step 2: Batch claim main→ephemeral (skip for SSU owner)
+      let claimDigest: string | null = null;
+      if (!isSsuOwner) {
+        try {
+          claimDigest = await onChainClaimBatchCp(
+            charProp.objectId,
+            charProp.ownerCapId,
+            toClaim,
+          );
+          if (!claimDigest) {
+            setContractContribError("On-chain batch claim failed. Please try again.");
+            return;
+          }
+          setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
+        } catch (e) {
+          console.error("[contract-package-claim] Batch claim error:", e);
+          setContractContribError(`Batch claim failed: ${(e as Error).message}`);
+          return;
+        }
+      }
+
+      // Save claim digest on courier record
+      const digest = claimDigest ?? (isSsuOwner ? "owner-claim" : null);
+      if (digest) {
+        try {
+          await claimDeliveryCp(c.delivery.id, wallet, digest);
+        } catch (e) {
+          console.warn("[contract-package-claim] Failed to save claim digest:", e);
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      if (toRelease.length > 0) queryClient.invalidateQueries({ queryKey: ["corporate-inventory"] });
+      setContractContribError(null);
+    } catch (err) {
+      console.error("[handleContractPackageClaim] error:", err);
       setContractContribError(`Error: ${(err as Error).message || "Unknown error"}`);
     }
   }
@@ -2038,11 +2395,32 @@ function ContractsPanel({
                       <div style={{ marginTop: "0.3rem", fontSize: "0.72rem", color: "var(--color-accent)" }}>
                         {c.couriers?.find((cr) => cr.courierWallet === wallet)?.claimDigest
                           ? "✓ Items picked up — travel to destination SSU and deposit via Incoming Deliveries"
-                          : "Click 📦 on each item below to pick up from SSU storage"}
+                          : c.delivery.packageId
+                            ? "Click 📦 Pick up Package below to collect all items at once"
+                            : "Click 📦 on each item below to pick up from SSU storage"}
                       </div>
                     )}
                   </div>
                 )}
+
+                {/* Package pickup button for Deliver contracts with a linked package */}
+                {c.type === "Deliver" && c.delivery?.packageId && isAcceptor && c.status === "accepted" && (() => {
+                  const myCourier = c.couriers?.find((cr) => cr.courierWallet === wallet);
+                  const alreadyClaimed = !!myCourier?.claimDigest;
+                  if (alreadyClaimed) return null;
+                  return (
+                    <div style={{ margin: "0.4rem 0", textAlign: "center" }}>
+                      <button
+                        className="btn-primary"
+                        disabled={!!acting}
+                        onClick={() => act(() => handleContractPackageClaim(c), `pkg-claim-${c.id}`)}
+                        style={{ fontSize: "0.85rem", padding: "0.4rem 1rem" }}
+                      >
+                        {acting === `pkg-claim-${c.id}` ? "Picking up…" : "📦 Pick up Package"}
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 <div className="rolodex-container">
                   {c.missions.map((m) => {
@@ -2067,6 +2445,8 @@ function ContractsPanel({
                         {isAcceptor && c.status === "accepted" && !isComplete && (
                           <div className="rc-controls">
                             {c.type === "Deliver" ? (() => {
+                              const isPackageContract = !!c.delivery?.packageId;
+                              if (isPackageContract) return null; // handled by package button above
                               const myCourier = c.couriers?.find((cr) => cr.courierWallet === wallet);
                               const alreadyClaimed = !!myCourier?.claimDigest;
                               return alreadyClaimed ? (
@@ -2075,7 +2455,7 @@ function ContractsPanel({
                                 <button
                                   className="btn-contribute"
                                   disabled={!!acting}
-                                  title="Pick up items from SSU main storage"
+                                  title="Pick up items from SSU storage"
                                   onClick={() => act(
                                     () => handleContractDeliveryClaim(c, m),
                                     `claim-${c.id}-${m.idx}`,

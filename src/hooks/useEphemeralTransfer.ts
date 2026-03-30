@@ -200,6 +200,75 @@ export function useClaim(ssuId: string | undefined) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// useClaimBatch — batch multiple main → ephemeral claims in a single PTB
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function useClaimBatch(ssuId: string | undefined) {
+  const { signAndExecuteTransaction } = useDAppKit();
+  const account = useCurrentAccount();
+  const [state, setState] = useState<TxResult>({ pending: false, error: null, digest: null });
+
+  async function claimBatch(
+    characterId: string,
+    ownerCapId: string,
+    items: { typeId: number; quantity: number }[],
+  ): Promise<string | null> {
+    if (!account || !ssuId) {
+      setState({ pending: false, error: "Wallet or SSU not available", digest: null });
+      return null;
+    }
+    if (items.length === 0) return "noop";
+    setState({ pending: true, error: null, digest: null });
+    try {
+      const W = worldPkg();
+      const ssuObjectId = await resolveSsuObjectId(ssuId);
+      const tx = new Transaction();
+
+      const [borrowedCap, receipt] = tx.moveCall({
+        target: `${W}::character::borrow_owner_cap`,
+        typeArguments: [`${W}::character::Character`],
+        arguments: [tx.object(characterId), tx.object(ownerCapId)],
+      });
+
+      for (const item of items) {
+        tx.moveCall({
+          target: `${EXT}::claim_supply`,
+          arguments: [
+            tx.object(ssuObjectId),
+            tx.object(characterId),
+            borrowedCap,
+            tx.pure.u64(item.typeId),
+            tx.pure.u32(item.quantity),
+          ],
+        });
+      }
+
+      tx.moveCall({
+        target: `${W}::access::return_owner_cap_to_object`,
+        typeArguments: [`${W}::character::Character`],
+        arguments: [borrowedCap, receipt, tx.pure.address(characterId)],
+      });
+
+      const result = await signAndExecuteTransaction({ transaction: tx });
+      if (result.$kind === "Transaction") {
+        const txDigest = result.Transaction.digest;
+        setState({ pending: false, error: null, digest: txDigest });
+        return txDigest;
+      }
+      const msg = "Transaction failed on-chain";
+      setState({ pending: false, error: msg, digest: null });
+      throw new Error(msg);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : friendlyTxError(e);
+      setState({ pending: false, error: msg, digest: null });
+      throw e instanceof Error ? e : new Error(msg);
+    }
+  }
+
+  return { claimBatch, ...state };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // useTrade — seller ephemeral → buyer ephemeral (marketplace)
 // ─────────────────────────────────────────────────────────────────────────────
 
