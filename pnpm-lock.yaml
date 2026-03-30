@@ -17,6 +17,9 @@ importers:
       '@mysten/dapp-kit-react':
         specifier: ^1.0.2
         version: 1.1.0(@mysten/sui@2.13.0(typescript@5.9.3))(@types/react@19.2.14)(react@19.2.4)(typescript@5.9.3)
+      '@mysten/move-bytecode-template':
+        specifier: ^0.3.0
+        version: 0.3.0
       '@mysten/sui':
         specifier: ^2.4.0
         version: 2.13.0(typescript@5.9.3)
@@ -692,6 +695,9 @@ packages:
     peerDependencies:
       '@types/react': '>=17.0.0'
       react: '>=17.0.0'
+
+  '@mysten/move-bytecode-template@0.3.0':
+    resolution: {integrity: sha512-vjcRXLF/uglpL7ss+QB/ZnfKCcb2o2eIBNMWKLKBfgg2bsF1JiRVOCYk9oMQuZcDgvDXZz3wDPrfznZxmzkK0w==}
 
   '@mysten/slush-wallet@1.0.3':
     resolution: {integrity: sha512-TF1CXXug5VPaV4KImKxZ7nyR0XY//KJVzOFxFXaajBHewLBinCO7s6GS9EYbtQMaNvnjrYQn1cpGhYfwGkzvtQ==}
@@ -3077,6 +3083,8 @@ snapshots:
     transitivePeerDependencies:
       - '@mysten/sui'
       - typescript
+
+  '@mysten/move-bytecode-template@0.3.0': {}
 
   '@mysten/slush-wallet@1.0.3(@mysten/sui@2.13.0(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:

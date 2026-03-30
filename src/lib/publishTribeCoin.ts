@@ -1,12 +1,13 @@
 /**
  * Dynamic tribe coin publishing — client-side (runs in the browser).
  *
- * Compiles a unique coin module per tribe on the server via /api/compile-coin
- * (uses `sui move build`), then publishes it on-chain from the browser.
+ * Patches pre-compiled Move bytecode with the tribe's ticker/name using
+ * @mysten/move-bytecode-template, then publishes it on-chain from the browser.
+ * No server-side `sui` CLI required.
  *
  * Flow:
- *   1. Server compiles a coin module with the tribe's ticker and name
- *   2. Build a publish transaction with the compiled bytecode
+ *   1. Patch the coin template bytecode with the tribe's ticker and name
+ *   2. Build a publish transaction with the patched bytecode
  *   3. Sign & execute via the connected wallet
  *   4. Extract TreasuryCap + CoinMetadata from the effects
  *   5. Build a create_vault transaction using the TreasuryCap
@@ -14,6 +15,8 @@
  *   7. Return the new deployment config
  */
 import { Transaction } from "@mysten/sui/transactions";
+import { update_identifiers, update_constants } from "@mysten/move-bytecode-template";
+import { COIN_TEMPLATE_BYTECODE, COIN_TEMPLATE_DEPENDENCIES } from "./coinTemplateBytecode";
 
 export interface PublishTribeCoinResult {
   coinPackageId: string;
@@ -29,28 +32,40 @@ export interface CreateVaultResult {
 }
 
 /**
- * Compile a coin module on the server and build a publish Transaction.
- * The caller signs and executes this transaction.
- * After execution, use extractPublishResult() on the response.
+ * Patch the pre-compiled coin template bytecode with a tribe's ticker/name
+ * and build a publish Transaction. No server-side compilation needed.
  */
-export async function buildPublishCoinTransaction(
+export function buildPublishCoinTransaction(
   ticker: string,
   coinName?: string,
   senderAddress?: string,
-): Promise<Transaction> {
-  const res = await fetch("/api/compile-coin", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ticker, coinName }),
+): Transaction {
+  const symbol = ticker.toUpperCase();
+  const modName = ticker.toLowerCase();
+  const name = coinName ?? `${symbol} Credits`;
+
+  // Decode the pre-compiled template bytecode
+  const templateBytes = Uint8Array.from(atob(COIN_TEMPLATE_BYTECODE), (c) => c.charCodeAt(0));
+
+  // Patch identifiers: module name + OTW struct
+  let patched = update_identifiers(templateBytes, {
+    COIN_TEMPLATE: symbol,
+    coin_template: modName,
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(`Coin compilation failed: ${err.error}`);
-  }
-  const { modules, dependencies } = await res.json();
+
+  // Patch constants: ticker symbol + display name
+  const enc = new TextEncoder();
+  patched = update_constants(patched, enc.encode(symbol), enc.encode("TMPL"), "Vector(U8)");
+  patched = update_constants(patched, enc.encode(name), enc.encode("Template Credits"), "Vector(U8)");
+
+  // Build the publish transaction
+  const moduleB64 = btoa(String.fromCharCode(...patched));
 
   const tx = new Transaction();
-  const [upgradeCap] = tx.publish({ modules, dependencies });
+  const [upgradeCap] = tx.publish({
+    modules: [moduleB64],
+    dependencies: COIN_TEMPLATE_DEPENDENCIES,
+  });
 
   if (senderAddress) {
     tx.transferObjects([upgradeCap], senderAddress);

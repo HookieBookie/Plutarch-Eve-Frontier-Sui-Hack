@@ -280,7 +280,7 @@ export function SetupPage({ onComplete }: SetupPageProps) {
 
           // Step A: Publish the tribe's unique coin module
           setStatus("Publishing tribe coin…");
-          const publishTx = await buildPublishCoinTransaction(
+          const publishTx = buildPublishCoinTransaction(
             coinSymbol,
             coinName,
             account.address,
