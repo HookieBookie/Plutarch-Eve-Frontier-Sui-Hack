@@ -98,6 +98,18 @@ export function usePackages(ssuId: string, tribeId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: qk }),
   });
 
+  const purgeMut = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(
+        `/api/packages?ssuId=${encodeURIComponent(ssuId)}&tribeId=${encodeURIComponent(tribeId)}&action=purge`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+      );
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to purge packages");
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk }),
+  });
+
   return {
     packages: data ?? [],
     loading: isLoading,
@@ -106,5 +118,6 @@ export function usePackages(ssuId: string, tribeId: string) {
     deletePackage: deleteMut.mutateAsync,
     listOnMarket: listOnMarketMut.mutateAsync,
     updateStatus: updateStatusMut.mutateAsync,
+    purgePackages: purgeMut.mutateAsync,
   };
 }

@@ -2195,6 +2195,20 @@ function tribeApiPlugin(tenantId: string): Plugin {
                 return;
               }
 
+              if (action === "purge") {
+                // Remove packages with terminal statuses (sold, cancelled, or allocated)
+                const pkgs = getPackages(ssuId, tribeId);
+                let count = 0;
+                for (const pkg of pkgs) {
+                  if (pkg.status === "sold" || pkg.status === "cancelled" || pkg.status === "allocated") {
+                    deletePackage(pkg.id);
+                    count++;
+                  }
+                }
+                res.end(JSON.stringify({ ok: true, purged: count }));
+                return;
+              }
+
               if (action === "list-market") {
                 const { packageId, wallet, playerName, price } = data;
                 if (!packageId || !wallet || !price) {

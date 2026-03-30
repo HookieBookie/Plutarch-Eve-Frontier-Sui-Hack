@@ -15,7 +15,7 @@
  *   7. Return the new deployment config
  */
 import { Transaction } from "@mysten/sui/transactions";
-import { update_identifiers, update_constants } from "@mysten/move-bytecode-template";
+import initWasm, { update_identifiers, update_constants } from "@mysten/move-bytecode-template";
 import { COIN_TEMPLATE_BYTECODE, COIN_TEMPLATE_DEPENDENCIES } from "./coinTemplateBytecode";
 
 export interface PublishTribeCoinResult {
@@ -35,11 +35,14 @@ export interface CreateVaultResult {
  * Patch the pre-compiled coin template bytecode with a tribe's ticker/name
  * and build a publish Transaction. No server-side compilation needed.
  */
-export function buildPublishCoinTransaction(
+export async function buildPublishCoinTransaction(
   ticker: string,
   coinName?: string,
   senderAddress?: string,
-): Transaction {
+): Promise<Transaction> {
+  // Initialise the WASM module (no-op if already initialised)
+  await initWasm();
+
   const symbol = ticker.toUpperCase();
   const modName = ticker.toLowerCase();
   const name = coinName ?? `${symbol} Credits`;

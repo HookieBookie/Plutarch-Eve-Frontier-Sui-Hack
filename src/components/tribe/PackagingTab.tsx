@@ -24,7 +24,7 @@ export function PackagingTab({ isOwner }: PackagingTabProps) {
   const { ssuId, tribeId } = useGoals();
   const { data: character } = useCharacter(account?.address);
   const { data: ssuInventory } = useSsuInventory(ssuId || undefined);
-  const { packages, saving, createPackage, deletePackage, listOnMarket } = usePackages(ssuId, tribeId);
+  const { packages, saving, createPackage, deletePackage, listOnMarket, purgePackages } = usePackages(ssuId, tribeId);
   const { allocatePackage } = useAllocations(ssuId, tribeId);
   const { wings } = useWings(ssuId, tribeId);
   const { escrowBatch } = useEscrowBatch(ssuId || undefined);
@@ -397,11 +397,23 @@ export function PackagingTab({ isOwner }: PackagingTabProps) {
 
       {/* ── Package List ── */}
       {mode === "list" && (() => {
+        const staleStatuses = new Set(["sold", "cancelled", "allocated"]);
         const visiblePackages = isOwner
           ? packages
           : packages.filter((p) => p.createdBy === account?.address);
         return (
         <>
+          {visiblePackages.some((p) => staleStatuses.has(p.status)) && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.3rem" }}>
+              <button
+                className="btn-subtle"
+                style={{ fontSize: "0.65rem" }}
+                onClick={() => purgePackages().catch((e) => setError((e as Error).message))}
+              >
+                🧹 Clear old packages
+              </button>
+            </div>
+          )}
           {visiblePackages.length === 0 ? (
             <p className="muted">No packages created yet.</p>
           ) : (
@@ -447,6 +459,11 @@ export function PackagingTab({ isOwner }: PackagingTabProps) {
                       {pkg.status === "listed" && isMine && (
                         <button className="btn-subtle btn-danger" style={{ marginLeft: "auto", fontSize: "0.65rem" }} onClick={() => handleDelete(pkg.id)}>
                           Cancel
+                        </button>
+                      )}
+                      {staleStatuses.has(pkg.status) && (isOwner || isMine) && (
+                        <button className="btn-subtle" style={{ marginLeft: "auto", fontSize: "0.65rem", opacity: 0.7 }} onClick={() => handleDelete(pkg.id)} title="Remove from list">
+                          ✕
                         </button>
                       )}
                     </div>
