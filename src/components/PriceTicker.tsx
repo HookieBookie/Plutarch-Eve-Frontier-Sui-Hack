@@ -1,40 +1,29 @@
-import { useVaultData } from "../hooks/useVaultData";
-import { useCharacter } from "../hooks/useCharacter";
-import { useCurrentAccount } from "@mysten/dapp-kit-react";
-import { useVaultId } from "../hooks/useVaultId";
-import { TRIBE_ID, CREDIT_MULTIPLIER } from "../config";
-import { useTribeTax } from "../hooks/useTribeTax";
-import { useTicker } from "../context/DeploymentContext";
+import { useAllTribes } from "../hooks/useAllTribes";
+import { CREDIT_MULTIPLIER } from "../config";
 
-/** Scrolling bottom ticker showing tribe credit value & backing ratio. */
+/** Scrolling bottom ticker showing all tribes' credit value & backing ratio. */
 export function PriceTicker() {
-  const account = useCurrentAccount();
-  const { data: character } = useCharacter(account?.address);
-  const { data: vaultId } = useVaultId(character?.tribeId);
-  const { data: vault } = useVaultData(vaultId);
-  const { taxPct } = useTribeTax(String(character?.tribeId ?? TRIBE_ID));
-  const ticker = useTicker();
+  const { data: tribes } = useAllTribes();
 
-  if (!vault) return null;
+  if (!tribes || tribes.length === 0) return null;
 
-  const tribeName = character?.tribeName ?? `Tribe ${character?.tribeId ?? TRIBE_ID}`;
-  const supply = (vault.creditSupply / 1e9).toLocaleString();
-  const backing = (vault.eveBacking / 1e9).toLocaleString();
-
-  const items = (
-    <>
-      <span className="ticker-item ticker-tribe">{tribeName}</span>
-      <span className="ticker-separator">|</span>
-      <span className="ticker-item">1 EVE = {CREDIT_MULTIPLIER} {ticker}</span>
-      <span className="ticker-separator">|</span>
-      <span className="ticker-item">{taxPct}% tribe tax</span>
-      <span className="ticker-separator">|</span>
-      <span className="ticker-item">Supply: {supply} {ticker}</span>
-      <span className="ticker-separator">|</span>
-      <span className="ticker-item">Backing: {backing} EVE</span>
-      <span className="ticker-separator">|</span>
-    </>
-  );
+  const items = tribes.map((t) => {
+    const name = t.tribeName ?? `Tribe ${t.tribeId}`;
+    const supply = ((t.vault?.creditSupply ?? 0) / 1e9).toLocaleString();
+    const backing = ((t.vault?.eveBacking ?? 0) / 1e9).toLocaleString();
+    return (
+      <span key={t.tribeId}>
+        <span className="ticker-item ticker-tribe">{name}</span>
+        <span className="ticker-separator">|</span>
+        <span className="ticker-item">1 EVE = {CREDIT_MULTIPLIER} {t.ticker}</span>
+        <span className="ticker-separator">|</span>
+        <span className="ticker-item">Supply: {supply} {t.ticker}</span>
+        <span className="ticker-separator">|</span>
+        <span className="ticker-item">Backing: {backing} EVE</span>
+        <span className="ticker-separator">|</span>
+      </span>
+    );
+  });
 
   return (
     <div className="ticker-bar">
