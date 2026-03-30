@@ -845,6 +845,8 @@ function tribeApiPlugin(tenantId: string): Plugin {
                   // If this is a Deliver contract, also create a delivery record
                   if (data.type === "Deliver" && data.deliveryItems && data.destinationSsuId) {
                     const deliveryId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                    // Snapshot package metadata so we can recreate at destination after source is deleted
+                    const srcPkg = data.packageId ? getPackageById(data.packageId) : null;
                     insertDelivery({
                       id: deliveryId,
                       sourceType: "contract",
@@ -855,6 +857,10 @@ function tribeApiPlugin(tenantId: string): Plugin {
                       destinationTribeId: data.destinationTribeId ?? tribeId,
                       destinationLabel: data.destinationLabel ?? "",
                       packageId: data.packageId ?? undefined,
+                      packageName: srcPkg?.name,
+                      packageShipType: srcPkg?.shipType,
+                      packageFittingText: srcPkg?.fittingText,
+                      packageCreatedBy: srcPkg?.createdBy,
                       items: data.deliveryItems,
                       collateral: Number(data.collateral) || 0,
                       timerMs: Number(data.missionDurationMs) || 86_400_000,
@@ -1018,6 +1024,8 @@ function tribeApiPlugin(tenantId: string): Plugin {
                 if (!items || items.length === 0) throw new Error("No items specified");
                 if (!data.destinationSsuId) throw new Error("No destination SSU specified");
                 const id = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                // Snapshot package metadata so we can recreate at destination after source is deleted
+                const srcPkg = data.packageId ? getPackageById(data.packageId) : null;
                 insertDelivery({
                   id,
                   sourceType: data.sourceType ?? "goal",
@@ -1028,6 +1036,10 @@ function tribeApiPlugin(tenantId: string): Plugin {
                   destinationTribeId: data.destinationTribeId ?? tribeId,
                   destinationLabel: data.destinationLabel ?? "",
                   packageId: data.packageId ?? undefined,
+                  packageName: srcPkg?.name,
+                  packageShipType: srcPkg?.shipType,
+                  packageFittingText: srcPkg?.fittingText,
+                  packageCreatedBy: srcPkg?.createdBy,
                   items,
                   collateral: Number(data.collateral) || 0,
                   timerMs: Number(data.timerMs) || 86_400_000,
@@ -1064,11 +1076,11 @@ function tribeApiPlugin(tenantId: string): Plugin {
                     updateDeliveryStatus(d.id, "in-transit");
                   }
 
-                  // Mark source package as dispatched so it's removed from the sender's package list
+                  // Delete source package immediately — it's been picked up
                   if (d.packageId) {
                     const srcPkg = getPackageById(d.packageId);
-                    if (srcPkg && srcPkg.status === "created") {
-                      updatePackageStatus(d.packageId, "dispatched");
+                    if (srcPkg) {
+                      deletePackage(d.packageId);
                     }
                   }
                 });
@@ -1128,70 +1140,59 @@ function tribeApiPlugin(tenantId: string): Plugin {
                   const fullyDeposited = isDeliveryFullyDeposited(d.id);
                   console.log(`[delivery-progress] fullyDeposited=${fullyDeposited}`);
                   if (fullyDeposited) {
-                    // Package manifest verification: if delivery references a package,
-                    // verify ALL manifest items were deposited before marking complete
-                    console.log(`[delivery-progress] Delivery ${d.id} fully deposited. packageId=${d.packageId ?? "none"}, destSSU=${d.destinationSsuId}, destTribe=${d.destinationTribeId}`);
+                    // Verify all delivery items are fully deposited across all couriers
+                    console.log(`[delivery-progress] Delivery ${d.id} fully deposited. packageId=${d.packageId ?? "none"}, destSSU=${d.destinationSsuId}`);
                     if (d.packageId) {
-                      const pkg = getPackageById(d.packageId);
-                      console.log(`[delivery-progress] Source package lookup: ${pkg ? `found "${pkg.name}" (status=${pkg.status}, ${pkg.items.length} items)` : "NOT FOUND"}`);
-                      if (pkg) {
-                        const allCouriers = getDeliveryCouriers(d.id);
-                        const totalDeposited = new Map<number, number>();
-                        for (const c of allCouriers) {
-                          for (const item of c.itemsDeposited) {
-                            totalDeposited.set(item.typeId, (totalDeposited.get(item.typeId) ?? 0) + item.quantity);
-                          }
+                      const allCouriers = getDeliveryCouriers(d.id);
+                      const totalDeposited = new Map<number, number>();
+                      for (const c of allCouriers) {
+                        for (const item of c.itemsDeposited) {
+                          totalDeposited.set(item.typeId, (totalDeposited.get(item.typeId) ?? 0) + item.quantity);
                         }
-                        const manifestMet = pkg.items.every((pi) =>
-                          (totalDeposited.get(pi.itemTypeId) ?? 0) >= pi.quantity,
-                        );
-                        console.log(`[delivery-progress] Manifest check: ${manifestMet ? "MET" : "NOT MET"}`, Object.fromEntries(totalDeposited), pkg.items.map((pi) => ({ typeId: pi.itemTypeId, need: pi.quantity })));
-                        if (!manifestMet) {
-                          // Package manifest not fully satisfied — don't complete yet
-                          return;
-                        }
+                      }
+                      const manifestMet = d.items.every((it) =>
+                        (totalDeposited.get(it.typeId) ?? 0) >= it.quantity,
+                      );
+                      console.log(`[delivery-progress] Manifest check: ${manifestMet ? "MET" : "NOT MET"}`, Object.fromEntries(totalDeposited), d.items.map((it) => ({ typeId: it.typeId, need: it.quantity })));
+                      if (!manifestMet) {
+                        return;
                       }
                     }
 
                     updateDeliveryStatus(d.id, "delivered");
 
-                    // Recreate package at destination and claim items to corporate storage
-                    if (d.packageId && d.destinationSsuId && d.destinationTribeId) {
-                      const srcPkg = getPackageById(d.packageId);
-                      console.log(`[delivery-progress] Recreating package at dest: srcPkg=${srcPkg ? `"${srcPkg.name}" (status=${srcPkg.status})` : "null"}`);
-                      if (srcPkg && srcPkg.status !== "delivered") {
-                        const destPkgId = `pkg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-                        insertPackage(
-                          {
-                            id: destPkgId,
-                            ssuId: d.destinationSsuId,
-                            tribeId: d.destinationTribeId,
-                            name: srcPkg.name,
-                            shipType: srcPkg.shipType,
-                            fittingText: srcPkg.fittingText,
-                            createdBy: srcPkg.createdBy,
-                            status: "created",
-                            marketOrderId: null,
-                          },
-                          srcPkg.items.map((it) => ({
-                            itemTypeId: it.itemTypeId,
-                            itemName: it.itemName,
-                            quantity: it.quantity,
-                            slotType: it.slotType,
-                          })),
-                        );
-                        // Claim delivered items into destination corporate storage
-                        for (const item of srcPkg.items) {
-                          addCorporateInventory(d.destinationSsuId, d.destinationTribeId, item.itemTypeId, item.itemName, item.quantity);
-                        }
-                        // Mark source package as delivered so it can't be recreated again
-                        updatePackageStatus(d.packageId, "delivered");
-                        console.log(`[delivery-progress] ✓ Recreated package "${srcPkg.name}" as ${destPkgId} at SSU=${d.destinationSsuId} tribe=${d.destinationTribeId}`);
-                      } else if (srcPkg?.status === "delivered") {
-                        console.log(`[delivery-progress] Skipped duplicate recreation — source package already delivered`);
+                    // Recreate package at destination owned by the receiving tribe
+                    if (d.packageId && d.destinationSsuId) {
+                      // Look up the actual tribe that owns the destination SSU
+                      const destSsuReg = getSsuBySsuId(d.destinationSsuId);
+                      const destTribe = destSsuReg?.tribeId ?? d.destinationTribeId;
+                      const destPkgId = `pkg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                      insertPackage(
+                        {
+                          id: destPkgId,
+                          ssuId: d.destinationSsuId,
+                          tribeId: destTribe,
+                          name: d.packageName ?? "Delivered Package",
+                          shipType: d.packageShipType ?? "",
+                          fittingText: d.packageFittingText ?? "",
+                          createdBy: d.packageCreatedBy ?? "",
+                          status: "created",
+                          marketOrderId: null,
+                        },
+                        d.items.map((it) => ({
+                          itemTypeId: it.typeId,
+                          itemName: it.itemName,
+                          quantity: it.quantity,
+                          slotType: "",
+                        })),
+                      );
+                      // Claim delivered items into destination corporate storage
+                      for (const item of d.items) {
+                        addCorporateInventory(d.destinationSsuId, destTribe, item.typeId, item.itemName, item.quantity);
                       }
+                      console.log(`[delivery-progress] ✓ Recreated package as ${destPkgId} at SSU=${d.destinationSsuId} tribe=${destTribe}`);
                     } else {
-                      console.log(`[delivery-progress] Skipped package recreation: packageId=${d.packageId ?? "none"}, destSSU=${d.destinationSsuId ?? "none"}, destTribe=${d.destinationTribeId ?? "none"}`);
+                      console.log(`[delivery-progress] Skipped package recreation: packageId=${d.packageId ?? "none"}, destSSU=${d.destinationSsuId ?? "none"}`);
                     }
 
                     // Handle rewards

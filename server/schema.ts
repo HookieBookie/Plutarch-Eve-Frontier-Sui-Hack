@@ -690,6 +690,11 @@ export const deliveries = sqliteTable(
     destinationLabel: text("destination_label").notNull().default(""),
     /** Optional reference to a package whose manifest must be fully delivered */
     packageId: text("package_id"),
+    /** Snapshot of package metadata (name, shipType, fittingText, createdBy) for recreation at destination */
+    packageName: text("package_name"),
+    packageShipType: text("package_ship_type"),
+    packageFittingText: text("package_fitting_text"),
+    packageCreatedBy: text("package_created_by"),
     /** JSON array of {typeId, itemName, quantity} */
     items: text("items").notNull(),
     /** Collateral required (contracts only, 0 for goals) */

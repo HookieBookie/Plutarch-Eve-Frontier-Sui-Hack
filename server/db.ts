@@ -627,6 +627,18 @@ export function initDb(dappsDir: string, tenant?: string): BetterSQLite3Database
     _sqlite.exec(`ALTER TABLE deliveries ADD COLUMN package_id TEXT`);
   } catch { /* column already exists */ }
   try {
+    _sqlite.exec(`ALTER TABLE deliveries ADD COLUMN package_name TEXT`);
+  } catch { /* column already exists */ }
+  try {
+    _sqlite.exec(`ALTER TABLE deliveries ADD COLUMN package_ship_type TEXT`);
+  } catch { /* column already exists */ }
+  try {
+    _sqlite.exec(`ALTER TABLE deliveries ADD COLUMN package_fitting_text TEXT`);
+  } catch { /* column already exists */ }
+  try {
+    _sqlite.exec(`ALTER TABLE deliveries ADD COLUMN package_created_by TEXT`);
+  } catch { /* column already exists */ }
+  try {
     _sqlite.exec(`ALTER TABLE ssu_network_settings ADD COLUMN network_node_id TEXT`);
   } catch { /* column already exists */ }
 
@@ -3265,6 +3277,10 @@ export interface DeliveryRow {
   destinationTribeId: string;
   destinationLabel: string;
   packageId?: string;
+  packageName?: string;
+  packageShipType?: string;
+  packageFittingText?: string;
+  packageCreatedBy?: string;
   items: DeliveryItem[];
   collateral: number;
   timerMs: number;
@@ -3296,6 +3312,10 @@ function mapDeliveryRow(r: any): DeliveryRow {
     destinationTribeId: r.destination_tribe_id ?? r.destinationTribeId,
     destinationLabel: r.destination_label ?? r.destinationLabel ?? "",
     packageId: r.package_id ?? r.packageId ?? undefined,
+    packageName: r.package_name ?? r.packageName ?? undefined,
+    packageShipType: r.package_ship_type ?? r.packageShipType ?? undefined,
+    packageFittingText: r.package_fitting_text ?? r.packageFittingText ?? undefined,
+    packageCreatedBy: r.package_created_by ?? r.packageCreatedBy ?? undefined,
     items: JSON.parse(typeof r.items === "string" ? r.items : "[]"),
     collateral: Number(r.collateral ?? 0),
     timerMs: Number(r.timer_ms ?? r.timerMs ?? 86400000),
@@ -3330,6 +3350,10 @@ export function insertDelivery(d: Omit<DeliveryRow, "createdAt">): void {
     destinationTribeId: d.destinationTribeId,
     destinationLabel: d.destinationLabel,
     packageId: d.packageId ?? null,
+    packageName: d.packageName ?? null,
+    packageShipType: d.packageShipType ?? null,
+    packageFittingText: d.packageFittingText ?? null,
+    packageCreatedBy: d.packageCreatedBy ?? null,
     items: JSON.stringify(d.items),
     collateral: d.collateral,
     timerMs: d.timerMs,
