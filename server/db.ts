@@ -2328,12 +2328,13 @@ export function resolveLocationRequest(requestId: number, status: "approved" | "
       grantLocationAccess(req.ssuId, req.tribeId, req.requesterAddress);
 
       // Reverse: approver can see the requester's SSU location
-      // The requester's SSU ID is stored in requesterSsuId
       if (req.requesterSsuId) {
-        // Find the approving SSU's owner address
         const approvingSsu = getSsu(req.ssuId, req.tribeId);
+        // Look up the requester's SSU to get the correct tribeId for cross-tribe grants
+        const requesterSsu = getSsuBySsuId(req.requesterSsuId);
+        const requesterTribeId = requesterSsu?.tribeId ?? req.tribeId;
         if (approvingSsu) {
-          grantLocationAccess(req.requesterSsuId, req.tribeId, approvingSsu.activatedBy);
+          grantLocationAccess(req.requesterSsuId, requesterTribeId, approvingSsu.activatedBy);
         }
       }
     }

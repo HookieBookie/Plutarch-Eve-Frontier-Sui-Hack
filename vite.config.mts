@@ -1811,36 +1811,45 @@ function tribeApiPlugin(tenantId: string): Plugin {
               const action = data.action as string;
 
               if (action === "create") {
+                // Resolve the target SSU's actual tribeId so cross-tribe requests
+                // are stored under the correct tribe and visible to the owner.
+                const targetSsu = getSsuBySsuId(ssuId);
+                const ownerTribeId = targetSsu?.tribeId ?? tribeId;
+
                 // Check if requester is blocked
-                if (isBlocked(ssuId, tribeId, data.requesterAddress, data.requesterSsuId)) {
+                if (isBlocked(ssuId, ownerTribeId, data.requesterAddress, data.requesterSsuId)) {
                   res.statusCode = 403;
                   res.end(JSON.stringify({ error: "Request blocked" }));
                   return;
                 }
 
                 // Check location policy for auto-handling
-                const settings = getNetworkSettings(ssuId, tribeId);
+                const settings = getNetworkSettings(ssuId, ownerTribeId);
                 if (settings.locationPolicy === "auto-deny") {
                   res.end(JSON.stringify({ status: "auto-denied" }));
                   return;
                 }
                 if (settings.locationPolicy === "auto-accept") {
-                  grantLocationAccess(ssuId, tribeId, data.requesterAddress);
+                  grantLocationAccess(ssuId, ownerTribeId, data.requesterAddress);
                   // Bidirectional: also grant reverse access
                   if (data.requesterSsuId) {
-                    const approvingSsu = getSsu(ssuId, tribeId);
-                    if (approvingSsu) grantLocationAccess(String(data.requesterSsuId), tribeId, approvingSsu.activatedBy);
+                    const approvingSsu = getSsu(ssuId, ownerTribeId);
+                    const reqSsu = getSsuBySsuId(String(data.requesterSsuId));
+                    const reqTribe = reqSsu?.tribeId ?? ownerTribeId;
+                    if (approvingSsu) grantLocationAccess(String(data.requesterSsuId), reqTribe, approvingSsu.activatedBy);
                   }
                   res.end(JSON.stringify({ status: "auto-approved" }));
                   return;
                 }
                 if (settings.locationPolicy === "whitelist") {
-                  const wl = getWhitelist(ssuId, tribeId);
+                  const wl = getWhitelist(ssuId, ownerTribeId);
                   if (wl.includes(data.requesterSsuId)) {
-                    grantLocationAccess(ssuId, tribeId, data.requesterAddress);
+                    grantLocationAccess(ssuId, ownerTribeId, data.requesterAddress);
                     // Bidirectional: also grant reverse access
-                    const approvingSsu = getSsu(ssuId, tribeId);
-                    if (approvingSsu) grantLocationAccess(String(data.requesterSsuId), tribeId, approvingSsu.activatedBy);
+                    const approvingSsu = getSsu(ssuId, ownerTribeId);
+                    const reqSsu = getSsuBySsuId(String(data.requesterSsuId));
+                    const reqTribe = reqSsu?.tribeId ?? ownerTribeId;
+                    if (approvingSsu) grantLocationAccess(String(data.requesterSsuId), reqTribe, approvingSsu.activatedBy);
                     res.end(JSON.stringify({ status: "auto-approved" }));
                     return;
                   }
@@ -1849,7 +1858,7 @@ function tribeApiPlugin(tenantId: string): Plugin {
 
                 const id = createLocationRequest({
                   ssuId,
-                  tribeId,
+                  tribeId: ownerTribeId,
                   requesterAddress: String(data.requesterAddress ?? ""),
                   requesterName: String(data.requesterName ?? ""),
                   requesterSsuId: String(data.requesterSsuId ?? ""),
