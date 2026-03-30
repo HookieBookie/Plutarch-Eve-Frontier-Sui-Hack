@@ -2281,7 +2281,7 @@ function tribeApiPlugin(tenantId: string): Plugin {
     transformIndexHtml(html) {
       const csp = [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline'",
+        "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
         "style-src 'self' 'unsafe-inline' https://artifacts.evefrontier.com",
         "font-src 'self' https://artifacts.evefrontier.com",
         "img-src 'self' data: blob:",
