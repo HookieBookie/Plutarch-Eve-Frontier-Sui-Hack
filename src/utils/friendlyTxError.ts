@@ -53,6 +53,11 @@ export function friendlyTxError(e: unknown): string {
     return "The requested items are not available in the inventory (not found or insufficient quantity).";
   }
 
+  // Missing/invalid coin type (no tribe coin published yet)
+  if (/type_arguments.*FIELD_INVALID|TypeParseError/i.test(msg)) {
+    return "No tribe coin has been published yet. Go to Settings → Publish Tribe Coin to create your currency before converting.";
+  }
+
   // Stale object version — previous transaction changed the object
   if (/not available for consumption|current version/i.test(msg)) {
     return "A previous transaction is still being processed. Please wait a few seconds and try again.";
