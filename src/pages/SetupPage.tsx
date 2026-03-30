@@ -3,7 +3,7 @@ import { useWallets, useDAppKit } from "@mysten/dapp-kit-react";
 import { abbreviateAddress, useConnection } from "@evefrontier/dapp-kit";
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { useCharacter } from "../hooks/useCharacter";
-import { useVaultId } from "../hooks/useVaultId";
+import { useVaultId, fetchVaultId } from "../hooks/useVaultId";
 import { useDeploymentConfig, type DeploymentConfig } from "../context/DeploymentContext";
 import {
   VAULT_COIN_TYPE,
@@ -260,6 +260,16 @@ export function SetupPage({ onComplete }: SetupPageProps) {
       // Step 3: Ensure tribe vault exists (create if needed)
       setStatus("Setting up tribe vault…");
       let vaultObjectId = registryVaultId ?? "";
+
+      // Direct on-chain vault lookup if React query hasn't resolved yet
+      if (!vaultObjectId && cfg.packageId && cfg.registryId) {
+        try {
+          const directVault = await fetchVaultId(character.tribeId, cfg.packageId, cfg.registryId);
+          if (directVault) vaultObjectId = directVault;
+        } catch (e) {
+          console.warn("[setup] Direct vault lookup failed:", (e as Error).message);
+        }
+      }
 
       if (!vaultObjectId) {
         // Try to create the vault on-chain via publish coin + create vault

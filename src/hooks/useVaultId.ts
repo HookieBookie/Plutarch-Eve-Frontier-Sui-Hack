@@ -1,18 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { Transaction } from "@mysten/sui/transactions";
-import { SUI_RPC_URL, SUI_NETWORK } from "../config";
+import { SUI_RPC_URL, SUI_NETWORK, ADMIN_ADDRESS } from "../config";
 import { useDeploymentConfig } from "../context/DeploymentContext";
 
 const rpc = new SuiJsonRpcClient({ url: SUI_RPC_URL, network: SUI_NETWORK });
-
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 /**
  * Look up the TribeVault object ID from the on-chain registry for a given tribe.
  * Calls `registry::vault_id(registry, tribe_id)` via devInspect.
  */
-async function fetchVaultId(tribeId: number, packageId: string, registryId: string): Promise<string | null> {
+export async function fetchVaultId(tribeId: number, packageId: string, registryId: string): Promise<string | null> {
   const tx = new Transaction();
   tx.moveCall({
     target: `${packageId}::registry::vault_id`,
@@ -21,7 +19,7 @@ async function fetchVaultId(tribeId: number, packageId: string, registryId: stri
 
   const result = await rpc.devInspectTransactionBlock({
     transactionBlock: tx,
-    sender: ZERO_ADDRESS,
+    sender: ADMIN_ADDRESS,
   });
 
   const returnValues = result.results?.[0]?.returnValues;

@@ -1,12 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { Transaction } from "@mysten/sui/transactions";
-import { SUI_RPC_URL, SUI_NETWORK, WORLD_API } from "../config";
+import { SUI_RPC_URL, SUI_NETWORK, WORLD_API, ADMIN_ADDRESS } from "../config";
 import type { VaultData } from "./useVaultData";
 
 const rpc = new SuiJsonRpcClient({ url: SUI_RPC_URL, network: SUI_NETWORK });
-
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 export interface TribeInfo {
   tribeId: string;
@@ -33,7 +31,7 @@ async function fetchVaultId(tribeId: number, packageId: string, registryId: stri
   });
   const result = await rpc.devInspectTransactionBlock({
     transactionBlock: tx,
-    sender: ZERO_ADDRESS,
+    sender: ADMIN_ADDRESS,
   });
   const returnValues = result.results?.[0]?.returnValues;
   if (!returnValues || returnValues.length === 0) return null;
