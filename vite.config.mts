@@ -46,6 +46,7 @@ import {
   getPackages, getPackageById, insertPackage, deletePackage,
   updatePackageStatus, getPackageItemsByOrderId,
   getCorporateInventory, getAllCorporateInventory, addCorporateInventory, removeCorporateInventory,
+  exportDatabase, importDatabase,
 } from "./server/db";
 
 /** Path to the coin_template Move project */
@@ -524,6 +525,39 @@ function tribeApiPlugin(tenantId: string): Plugin {
         res.statusCode = 405;
         res.end(JSON.stringify({ error: "Method not allowed" }));
       });
+
+      // ── Database backup / restore ──
+      server.middlewares.use("/api/backup", (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        if (req.method === "GET") {
+          const data = exportDatabase();
+          res.end(JSON.stringify(data));
+          return;
+        }
+        if (req.method === "POST") {
+          let body = "";
+          req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+          req.on("end", () => {
+            try {
+              const data = JSON.parse(body);
+              if (typeof data !== "object" || data === null) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ error: "Expected JSON object" }));
+                return;
+              }
+              const result = importDatabase(data);
+              res.end(JSON.stringify({ ok: true, ...result }));
+            } catch (err) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: err instanceof Error ? err.message : "Invalid JSON" }));
+            }
+          });
+          return;
+        }
+        res.statusCode = 405;
+        res.end(JSON.stringify({ error: "Method not allowed" }));
+      });
+
       // ── All tribes listing ──
       server.middlewares.use("/api/tribes", (req, res) => {
         res.setHeader("Content-Type", "application/json");

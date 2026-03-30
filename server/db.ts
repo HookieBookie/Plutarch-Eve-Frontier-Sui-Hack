@@ -644,6 +644,21 @@ export function initDb(dappsDir: string, tenant?: string): BetterSQLite3Database
   // Seed known tribe deployment records so they survive DB resets
   seedDeployments(_sqlite!);
 
+  // Auto-restore from DB_BACKUP env var if the DB is empty (fresh deploy)
+  const backupEnv = process.env.DB_BACKUP;
+  if (backupEnv) {
+    const ssuCount = _sqlite!.prepare("SELECT COUNT(*) as cnt FROM ssu_registrations").get() as { cnt: number };
+    if (ssuCount.cnt === 0) {
+      try {
+        const data = JSON.parse(Buffer.from(backupEnv, "base64").toString("utf-8"));
+        const result = importDatabase(data);
+        console.log(`[DB] Auto-restored from DB_BACKUP: ${result.tablesRestored} tables, ${result.rowsRestored} rows`);
+      } catch (err) {
+        console.error("[DB] Failed to restore from DB_BACKUP:", err);
+      }
+    }
+  }
+
   return _db;
 }
 
@@ -3629,4 +3644,105 @@ export function getPackageItemsByOrderId(orderId: string): PackageItemRow[] {
       quantity: pi.quantity,
       slotType: pi.slotType,
     }));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Full database backup / restore
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Tables to include in backups. Excludes large ephemeral caches
+ * like solar_systems (re-fetched from chain) and kv_store (migrated on boot).
+ */
+const BACKUP_TABLES = [
+  "deployments",
+  "ssu_registrations",
+  "members",
+  "wings",
+  "wing_members",
+  "allocations",
+  "goals",
+  "missions",
+  "mission_wing_assignments",
+  "ssu_locations",
+  "ssu_network_settings",
+  "location_access_grants",
+  "location_access_requests",
+  "location_blocked",
+  "location_whitelist",
+  "network_map_nodes",
+  "network_map_links",
+  "network_map_waypoints",
+  "network_map_data_shares",
+  "tribe_settings",
+  "balances",
+  "ledger_entries",
+  "market_orders",
+  "market_history",
+  "price_snapshots",
+  "tribe_coin_orders",
+  "external_ssus",
+  "contracts",
+  "contract_missions",
+  "contract_item_escrow",
+  "deliveries",
+  "delivery_couriers",
+  "packages",
+  "package_items",
+  "corporate_inventory",
+] as const;
+
+/** Export the entire database as a JSON object keyed by table name. */
+export function exportDatabase(): Record<string, unknown[]> {
+  const data: Record<string, unknown[]> = {};
+  for (const table of BACKUP_TABLES) {
+    try {
+      data[table] = _sqlite!.prepare(`SELECT * FROM ${table}`).all();
+    } catch {
+      // Table may not exist yet
+      data[table] = [];
+    }
+  }
+  return data;
+}
+
+/** Import a full database backup. Clears existing data in each table first. */
+export function importDatabase(data: Record<string, unknown[]>): { tablesRestored: number; rowsRestored: number } {
+  let tablesRestored = 0;
+  let rowsRestored = 0;
+
+  const tx = _sqlite!.transaction(() => {
+    for (const table of BACKUP_TABLES) {
+      const rows = data[table];
+      if (!Array.isArray(rows) || rows.length === 0) continue;
+
+      // Get column names from the first row
+      const columns = Object.keys(rows[0] as Record<string, unknown>);
+      if (columns.length === 0) continue;
+
+      // Verify these columns exist in the table
+      const tableInfo = _sqlite!.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+      const validColumns = new Set(tableInfo.map((c) => c.name));
+      const usableColumns = columns.filter((c) => validColumns.has(c));
+      if (usableColumns.length === 0) continue;
+
+      // Clear existing data
+      _sqlite!.prepare(`DELETE FROM ${table}`).run();
+
+      // Insert rows
+      const placeholders = usableColumns.map(() => "?").join(", ");
+      const colList = usableColumns.join(", ");
+      const stmt = _sqlite!.prepare(`INSERT OR REPLACE INTO ${table} (${colList}) VALUES (${placeholders})`);
+
+      for (const row of rows) {
+        const r = row as Record<string, unknown>;
+        stmt.run(...usableColumns.map((c) => r[c] ?? null));
+        rowsRestored++;
+      }
+      tablesRestored++;
+    }
+  });
+
+  tx();
+  return { tablesRestored, rowsRestored };
 }
