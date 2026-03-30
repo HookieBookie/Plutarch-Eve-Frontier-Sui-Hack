@@ -624,6 +624,9 @@ export function initDb(dappsDir: string, tenant?: string): BetterSQLite3Database
     _sqlite.exec(`ALTER TABLE allocations ADD COLUMN package_id TEXT`);
   } catch { /* column already exists */ }
   try {
+    _sqlite.exec(`ALTER TABLE deliveries ADD COLUMN package_id TEXT`);
+  } catch { /* column already exists */ }
+  try {
     _sqlite.exec(`ALTER TABLE ssu_network_settings ADD COLUMN network_node_id TEXT`);
   } catch { /* column already exists */ }
 
