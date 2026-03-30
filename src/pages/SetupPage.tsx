@@ -105,11 +105,17 @@ export function SetupPage({ onComplete }: SetupPageProps) {
 
     try {
       // Step 1: Ensure deployment config has at least packageId/registryId
-      // Merge defaults under existing config so we never overwrite coin info
+      // Merge defaults under existing config, keeping only non-empty cfg values
+      // so empty strings don't shadow real defaults.
       let cfg = deploymentConfig;
       if (!cfg || !cfg.packageId) {
         setStatus("Registering deployment for your tribe…");
-        cfg = { ...DEFAULT_DEPLOYMENT, ...(cfg ?? {}) } as DeploymentConfig;
+        const existing = cfg ?? ({} as Record<string, unknown>);
+        const merged: Record<string, unknown> = { ...DEFAULT_DEPLOYMENT };
+        for (const [k, v] of Object.entries(existing)) {
+          if (v !== "" && v != null) merged[k] = v;
+        }
+        cfg = merged as unknown as DeploymentConfig;
         await saveConfig(cfg);
       } else if (!cfg.creditCoinType && DEFAULT_DEPLOYMENT.packageId === cfg.packageId) {
         // Config exists but coin fields are missing — fill from defaults without overwriting
@@ -288,26 +294,52 @@ export function SetupPage({ onComplete }: SetupPageProps) {
             }
           } catch { /* non-fatal */ }
 
-          // Step A: Publish the tribe's unique coin module
-          setStatus("Publishing tribe coin…");
-          const publishTx = await buildPublishCoinTransaction(
-            coinSymbol,
-            coinName,
-            account.address,
-          );
-          const publishResult = await signAndExecuteTransaction({
-            transaction: publishTx,
-          });
-          if (publishResult.$kind !== "Transaction") {
-            throw new Error("Coin publish transaction failed on-chain");
+          let coinInfo: { coinPackageId: string; creditCoinType: string; creditMetadataId: string; treasuryCapId: string };
+
+          if (cfg.creditCoinType && cfg.coinPackageId) {
+            // Coin already published — look up the existing TreasuryCap on-chain
+            setStatus("Looking up existing tribe coin…");
+            const treasuryCapType = `0x2::coin::TreasuryCap<${cfg.creditCoinType}>`;
+            const ownedObjects = await rpc.getOwnedObjects({
+              owner: account.address,
+              filter: { StructType: treasuryCapType },
+              options: { showType: true },
+            });
+            const tcap = ownedObjects.data?.[0]?.data;
+            if (!tcap) {
+              throw new Error(
+                `TreasuryCap for ${cfg.creditCoinType} not found in your wallet. ` +
+                "The coin was published but the TreasuryCap may have already been consumed by a previous vault creation.",
+              );
+            }
+            coinInfo = {
+              coinPackageId: cfg.coinPackageId,
+              creditCoinType: cfg.creditCoinType,
+              creditMetadataId: cfg.creditMetadataId ?? "",
+              treasuryCapId: tcap.objectId,
+            };
+          } else {
+            // Step A: Publish the tribe's unique coin module
+            setStatus("Publishing tribe coin…");
+            const publishTx = await buildPublishCoinTransaction(
+              coinSymbol,
+              coinName,
+              account.address,
+            );
+            const publishResult = await signAndExecuteTransaction({
+              transaction: publishTx,
+            });
+            if (publishResult.$kind !== "Transaction") {
+              throw new Error("Coin publish transaction failed on-chain");
+            }
+            const publishDigest = publishResult.Transaction.digest;
+            await rpc.waitForTransaction({ digest: publishDigest });
+            const publishDetail = await rpc.getTransactionBlock({
+              digest: publishDigest,
+              options: { showObjectChanges: true },
+            });
+            coinInfo = extractPublishResult(publishDetail, coinSymbol);
           }
-          const publishDigest = publishResult.Transaction.digest;
-          await rpc.waitForTransaction({ digest: publishDigest });
-          const publishDetail = await rpc.getTransactionBlock({
-            digest: publishDigest,
-            options: { showObjectChanges: true },
-          });
-          const coinInfo = extractPublishResult(publishDetail, coinSymbol);
 
           // Step B: Create the vault using the TreasuryCap
           setStatus("Creating tribe vault…");
