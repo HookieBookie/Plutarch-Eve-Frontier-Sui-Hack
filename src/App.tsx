@@ -119,9 +119,9 @@ function App() {
   }
 
   return (
-    <DeploymentProvider tribeId={ssuTribeId || tribeId}>
-      <GoalProvider tribeId={ssuTribeId || tribeId} ssuId={activeSsuId}>
-      <ContractProvider tribeId={ssuTribeId || tribeId} ssuId={activeSsuId}>
+    <DeploymentProvider tribeId={tribeId}>
+      <GoalProvider tribeId={tribeId} ssuId={activeSsuId}>
+      <ContractProvider tribeId={tribeId} ssuId={activeSsuId}>
         <div className="app-shell">
           <Toolbar
             activePage={effectivePage}

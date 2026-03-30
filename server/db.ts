@@ -3390,6 +3390,11 @@ export function updateCourierStatus(courierId: number, status: string): void {
     .run(status, status === "in-transit" ? null : Date.now(), courierId);
 }
 
+export function updateCourierClaimDigest(courierId: number, claimDigest: string): void {
+  _sqlite!.prepare(`UPDATE delivery_couriers SET claim_digest = ? WHERE id = ?`)
+    .run(claimDigest, courierId);
+}
+
 /** Check if all items for a delivery have been deposited across all couriers. */
 export function isDeliveryFullyDeposited(deliveryId: string): boolean {
   const delivery = getDelivery(deliveryId);

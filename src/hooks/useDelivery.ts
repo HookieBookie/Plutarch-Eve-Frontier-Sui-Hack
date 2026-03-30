@@ -127,6 +127,14 @@ export function useDeliveryActions(ssuId: string, tribeId: string) {
     [ssuId, tribeId, refresh],
   );
 
+  const claimDelivery = useCallback(
+    async (deliveryId: string, wallet: string, claimDigest: string) => {
+      await postDeliveryAction(ssuId, tribeId, "claim", { deliveryId, wallet, claimDigest });
+      refresh();
+    },
+    [ssuId, tribeId, refresh],
+  );
+
   const progressDelivery = useCallback(
     async (deliveryId: string, wallet: string, items: DeliveryItem[]) => {
       await postDeliveryAction(ssuId, tribeId, "progress", { deliveryId, wallet, items });
@@ -151,5 +159,5 @@ export function useDeliveryActions(ssuId: string, tribeId: string) {
     [ssuId, tribeId, refresh],
   );
 
-  return { createDelivery, acceptDelivery, progressDelivery, failDelivery, cancelDelivery, refresh };
+  return { createDelivery, acceptDelivery, claimDelivery, progressDelivery, failDelivery, cancelDelivery, refresh };
 }

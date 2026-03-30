@@ -40,7 +40,7 @@ import {
   insertDelivery, getDelivery, getDeliveriesBySsu, getDeliveriesByDestination, getDeliveriesBySource,
   updateDeliveryStatus,
   addDeliveryCourier, getDeliveryCouriers, getDeliveryCouriersByWallet,
-  updateCourierDeposit, updateCourierStatus, isDeliveryFullyDeposited,
+  updateCourierDeposit, updateCourierStatus, updateCourierClaimDigest, isDeliveryFullyDeposited,
   completeDeliveryGoal,
   type DeliveryItem,
   getPackages, getPackageById, insertPackage, deletePackage,
@@ -1063,6 +1063,22 @@ function tribeApiPlugin(tenantId: string): Plugin {
                   if (d.status === "pending") {
                     updateDeliveryStatus(d.id, "in-transit");
                   }
+                });
+                res.end(JSON.stringify({ ok: true }));
+
+              } else if (action === "claim") {
+                // Courier records a claim TX digest after picking up items at source SSU
+                runTransaction(() => {
+                  const d = getDelivery(data.deliveryId);
+                  if (!d) throw new Error("Delivery not found");
+                  if (d.status !== "in-transit") throw new Error("Delivery not in transit");
+
+                  const couriers = getDeliveryCouriers(d.id);
+                  const courier = couriers.find((c) => c.courierWallet === data.wallet && c.status === "in-transit");
+                  if (!courier) throw new Error("You are not an active courier for this delivery");
+                  if (!data.claimDigest) throw new Error("Missing claim digest");
+
+                  updateCourierClaimDigest(courier.id, data.claimDigest);
                 });
                 res.end(JSON.stringify({ ok: true }));
 

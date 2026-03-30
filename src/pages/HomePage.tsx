@@ -1214,6 +1214,87 @@ function ContractsPanel({
   // On-chain transfer hooks for contract mission progression
   const { escrow: escrowToOpenInner } = useEscrowFromEphemeral(ssuId || undefined);
   const { trade: onChainTrade } = useTrade(ssuId || undefined);
+  const { claim: onChainClaimCp } = useClaim(ssuId || undefined);
+  const { claimDelivery: claimDeliveryCp } = useDeliveryActions(ssuId || "", tribeId || "");
+
+  /**
+   * Handle Deliver contract claim: pick up items at the source SSU.
+   * Claims items from main storage → user's ephemeral, then records claim digest.
+   */
+  async function handleContractDeliveryClaim(c: Contract, m: import("../context/ContractContext").ContractMission) {
+    setContractContribError(null);
+    try {
+      if (!ssuInventory) {
+        setContractContribError("SSU inventory not loaded yet. Click ↻ Refresh and try again.");
+        return;
+      }
+      if (!charProp?.objectId || !charProp?.ownerCapId) {
+        setContractContribError("Character data not loaded. Please reconnect your wallet.");
+        return;
+      }
+      if (!c.delivery?.id) {
+        setContractContribError("No linked delivery record found for this contract.");
+        return;
+      }
+
+      const remaining = m.quantity - m.completedQty;
+      if (remaining <= 0) return;
+
+      // Check SSU main storage for the item
+      const itemName = extractItemName(m.description);
+      const mainAvailable = findItemQuantity(ssuInventory.mainItems, m.typeId ?? undefined, itemName);
+      if (mainAvailable <= 0) {
+        const what = itemName ?? `type #${m.typeId}`;
+        setContractContribError(`"${what}" not found in SSU main storage. Nothing to pick up.`);
+        return;
+      }
+
+      const claimQty = Math.min(mainAvailable, remaining);
+
+      // Determine if current user is the SSU owner (skip on-chain for owner)
+      const myCharAddr = charProp.objectId?.toLowerCase() ?? '';
+      const ssuOwnerAddr = ssuInventory.ownerId?.toLowerCase() ?? '';
+      const isSsuOwner = myCharAddr && ssuOwnerAddr && myCharAddr === ssuOwnerAddr;
+
+      let claimDigest: string | null = null;
+      if (!isSsuOwner && m.typeId && m.typeId > 0) {
+        try {
+          claimDigest = await onChainClaimCp(
+            charProp.objectId,
+            charProp.ownerCapId,
+            m.typeId,
+            claimQty,
+          );
+          if (!claimDigest) {
+            setContractContribError("On-chain item claim failed. Please try again.");
+            return;
+          }
+          setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
+        } catch (e) {
+          console.error("[contract-delivery-claim] On-chain claim error:", e);
+          setContractContribError(`Claim failed: ${(e as Error).message}`);
+          return;
+        }
+      }
+
+      // Save claim digest on courier record
+      const digest = claimDigest ?? (isSsuOwner ? "owner-claim" : null);
+      if (digest) {
+        try {
+          await claimDeliveryCp(c.delivery.id, wallet, digest);
+        } catch (e) {
+          console.warn("[contract-delivery-claim] Failed to save claim digest:", e);
+        }
+      }
+
+      // Refresh contracts to pick up updated courier data
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      setContractContribError(null);
+    } catch (err) {
+      console.error("[handleContractDeliveryClaim] error:", err);
+      setContractContribError(`Error: ${(err as Error).message || "Unknown error"}`);
+    }
+  }
 
   /**
    * Handle contract mission progression with inventory verification + on-chain transfer.
@@ -1945,11 +2026,19 @@ function ContractsPanel({
                         {c.couriers.map((cr, ci) => (
                           <div key={ci} style={{ marginLeft: "0.5rem", fontSize: "0.72rem" }}>
                             {cr.courierName} ({cr.status})
+                            {cr.claimDigest && <span className="muted"> — ✓ picked up</span>}
                             {cr.itemsDeposited.length > 0 && (
                               <span className="muted"> — deposited: {cr.itemsDeposited.map((d) => `${d.quantity}× ${d.itemName}`).join(", ")}</span>
                             )}
                           </div>
                         ))}
+                      </div>
+                    )}
+                    {isAcceptor && c.status === "accepted" && c.delivery.status === "in-transit" && (
+                      <div style={{ marginTop: "0.3rem", fontSize: "0.72rem", color: "var(--color-accent)" }}>
+                        {c.couriers?.find((cr) => cr.courierWallet === wallet)?.claimDigest
+                          ? "✓ Items picked up — travel to destination SSU and deposit via Incoming Deliveries"
+                          : "Click 📦 on each item below to pick up from SSU storage"}
                       </div>
                     )}
                   </div>
@@ -1977,16 +2066,36 @@ function ContractsPanel({
                         </div>
                         {isAcceptor && c.status === "accepted" && !isComplete && (
                           <div className="rc-controls">
-                            <button
-                              className="btn-contribute"
-                              disabled={!!acting}
-                              onClick={() => act(
-                                () => handleContractProgress(c, m),
-                                `progress-${c.id}-${m.idx}`,
-                              )}
-                            >
-                              +
-                            </button>
+                            {c.type === "Deliver" ? (() => {
+                              const myCourier = c.couriers?.find((cr) => cr.courierWallet === wallet);
+                              const alreadyClaimed = !!myCourier?.claimDigest;
+                              return alreadyClaimed ? (
+                                <span className="rc-done-badge" title="Items picked up — deliver to destination">✓ Picked up</span>
+                              ) : (
+                                <button
+                                  className="btn-contribute"
+                                  disabled={!!acting}
+                                  title="Pick up items from SSU main storage"
+                                  onClick={() => act(
+                                    () => handleContractDeliveryClaim(c, m),
+                                    `claim-${c.id}-${m.idx}`,
+                                  )}
+                                >
+                                  📦
+                                </button>
+                              );
+                            })() : (
+                              <button
+                                className="btn-contribute"
+                                disabled={!!acting}
+                                onClick={() => act(
+                                  () => handleContractProgress(c, m),
+                                  `progress-${c.id}-${m.idx}`,
+                                )}
+                              >
+                                +
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>

@@ -62,6 +62,7 @@ export interface Contract {
     courierName: string;
     itemsDeposited: { typeId: number; itemName: string; quantity: number }[];
     status: string;
+    claimDigest: string | null;
   }[];
   /** Creator tribe's full coin type, e.g. "0xabc::co86::CO86" */
   creatorCoinType?: string;
