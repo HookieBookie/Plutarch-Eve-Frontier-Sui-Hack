@@ -154,7 +154,7 @@ export function SetupPage({ onComplete }: SetupPageProps) {
           const nnId = networkNodeInput.trim();
           if (nnId) {
             setStatus("Verifying network node…");
-            const nnResult = await verifyNetworkNode(nnId);
+            await verifyNetworkNode(nnId);
             setStatus("Saving network node…");
             const nnSaveRes = await fetch(
               `/api/network-settings?ssuId=${encodeURIComponent(ssuId)}&tribeId=${encodeURIComponent(character.tribeId)}`,
