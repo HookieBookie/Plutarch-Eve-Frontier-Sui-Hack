@@ -26,8 +26,9 @@ export function RecipeEditor() {
   /* ---- Manufacturing form state ---- */
   const [mOutput, setMOutput] = useState("");
   const [mOutputQty, setMOutputQty] = useState(1);
-  const [mInput, setMInput] = useState("");
-  const [mInputQty, setMInputQty] = useState(1);
+  const [mInputs, setMInputs] = useState<{ name: string; qty: number }[]>([
+    { name: "", qty: 1 },
+  ]);
 
   /* ---- Refining form state ---- */
   const [rInput, setRInput] = useState("");
@@ -41,6 +42,21 @@ export function RecipeEditor() {
   /* ---- Helpers ---- */
   function addComponentRow() {
     setBComponents([...bComponents, { name: "", qty: 1 }]);
+  }
+
+  function addMfgInputRow() {
+    setMInputs([...mInputs, { name: "", qty: 1 }]);
+  }
+
+  function updateMfgInput(idx: number, field: "name" | "qty", value: string | number) {
+    const next = [...mInputs];
+    if (field === "name") next[idx] = { ...next[idx], name: value as string };
+    else next[idx] = { ...next[idx], qty: Number(value) || 1 };
+    setMInputs(next);
+  }
+
+  function removeMfgInput(idx: number) {
+    setMInputs(mInputs.filter((_, i) => i !== idx));
   }
 
   function updateComponent(idx: number, field: "name" | "qty", value: string | number) {
@@ -66,18 +82,19 @@ export function RecipeEditor() {
   }
 
   async function addManufacturing() {
-    if (!mOutput.trim() || !mInput.trim()) return;
-    const row: IndustryRow = {
-      outputItem: mOutput.trim(),
-      outputQty: mOutputQty,
-      inputItem: mInput.trim(),
-      inputQty: mInputQty,
-    };
-    await save({ ...recipes, industry: [...recipes.industry, ...[row]] });
+    if (!mOutput.trim() || mInputs.every((inp) => !inp.name.trim())) return;
+    const rows: IndustryRow[] = mInputs
+      .filter((inp) => inp.name.trim())
+      .map((inp) => ({
+        outputItem: mOutput.trim(),
+        outputQty: mOutputQty,
+        inputItem: inp.name.trim(),
+        inputQty: inp.qty,
+      }));
+    await save({ ...recipes, industry: [...recipes.industry, ...rows] });
     setMOutput("");
     setMOutputQty(1);
-    setMInput("");
-    setMInputQty(1);
+    setMInputs([{ name: "", qty: 1 }]);
   }
 
   async function addRefining() {
@@ -103,10 +120,12 @@ export function RecipeEditor() {
     await save(updated);
   }
 
-  async function removeCustomIndustry(idx: number) {
+  async function removeCustomIndustryGroup(outputItem: string, outputQty: number) {
     const updated = {
       ...recipes,
-      industry: recipes.industry.filter((_, i) => i !== idx),
+      industry: recipes.industry.filter(
+        (r) => !(r.outputItem === outputItem && r.outputQty === outputQty),
+      ),
     };
     await save(updated);
   }
@@ -142,6 +161,19 @@ export function RecipeEditor() {
       (c) => c.building === r.building && c.component === r.component && c.qty === r.qty,
     );
     buildingMap.get(r.building)!.push({ component: r.component, qty: r.qty, custom: isCustom });
+  }
+
+  // Group manufacturing recipes by output for display
+  const mfgMap = new Map<string, { output: string; outputQty: number; source?: string; inputs: { name: string; qty: number; custom: boolean }[] }>();
+  for (const r of all.industry) {
+    const key = `${r.outputItem}|${r.outputQty}|${r.source ?? ""}`;
+    if (!mfgMap.has(key)) {
+      mfgMap.set(key, { output: r.outputItem, outputQty: r.outputQty, source: r.source, inputs: [] });
+    }
+    const isCustom = recipes.industry.some(
+      (c) => c.outputItem === r.outputItem && c.outputQty === r.outputQty && c.inputItem === r.inputItem && c.inputQty === r.inputQty && (c.source ?? "") === (r.source ?? ""),
+    );
+    mfgMap.get(key)!.inputs.push({ name: r.inputItem, qty: r.inputQty, custom: isCustom });
   }
 
   return (
@@ -254,44 +286,64 @@ export function RecipeEditor() {
       {tab === "manufacturing" && (
         <div className="recipe-section">
           <div className="recipe-list">
-            {all.industry.map((r, i) => {
-              const customIdx = i - (all.industry.length - recipes.industry.length);
-              const isCustom = customIdx >= 0;
+            {[...mfgMap.entries()].map(([key, group]) => {
+              const allCustom = group.inputs.every((inp) => inp.custom);
               return (
-                <div key={i} className="recipe-row recipe-row-inline">
-                  <span className="recipe-io">
-                    {r.inputQty}× {r.inputItem} → {r.outputQty}× {r.outputItem}
-                  </span>
-                  {isCustom && (
-                    <button
-                      className="recipe-delete"
-                      onClick={() => removeCustomIndustry(customIdx)}
-                    >
-                      ×
-                    </button>
-                  )}
+                <div key={key} className="recipe-row">
+                  <div className="recipe-row-header">
+                    <span className="recipe-name">
+                      {group.outputQty}× {group.output}
+                      {group.source ? ` (${group.source})` : ""}
+                    </span>
+                    {allCustom && (
+                      <button
+                        className="recipe-delete"
+                        onClick={() => removeCustomIndustryGroup(group.output, group.outputQty)}
+                        title="Remove recipe"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                  <div className="recipe-components">
+                    {group.inputs.map((inp, i) => (
+                      <span key={i} className="recipe-comp">
+                        {inp.qty}× {inp.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               );
             })}
+            {mfgMap.size === 0 && (
+              <p className="muted">No manufacturing recipes defined yet.</p>
+            )}
           </div>
 
           <div className="recipe-form">
             <h4>Add Manufacturing Recipe</h4>
-            <div className="recipe-comp-row">
-              <input
-                type="text"
-                placeholder="Input material"
-                value={mInput}
-                onChange={(e) => setMInput(e.target.value)}
-              />
-              <input
-                type="number"
-                min={1}
-                value={mInputQty}
-                onChange={(e) => setMInputQty(Number(e.target.value) || 1)}
-                style={{ width: "5rem" }}
-              />
-            </div>
+            {mInputs.map((inp, i) => (
+              <div key={i} className="recipe-comp-row">
+                <input
+                  type="text"
+                  placeholder="Input material"
+                  value={inp.name}
+                  onChange={(e) => updateMfgInput(i, "name", e.target.value)}
+                />
+                <input
+                  type="number"
+                  min={1}
+                  value={inp.qty}
+                  onChange={(e) => updateMfgInput(i, "qty", e.target.value)}
+                  style={{ width: "5rem" }}
+                />
+                {mInputs.length > 1 && (
+                  <button className="recipe-delete" onClick={() => removeMfgInput(i)}>
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
             <div className="recipe-arrow">↓ produces</div>
             <div className="recipe-comp-row">
               <input
@@ -309,6 +361,9 @@ export function RecipeEditor() {
               />
             </div>
             <div className="recipe-form-actions">
+              <button className="btn-secondary" onClick={addMfgInputRow}>
+                + Input
+              </button>
               <button className="btn-primary" disabled={saving} onClick={addManufacturing}>
                 {saving ? "Saving…" : "Add Recipe"}
               </button>
