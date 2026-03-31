@@ -1099,6 +1099,14 @@ function tribeApiPlugin(tenantId: string): Plugin {
                   if (!data.claimDigest) throw new Error("Missing claim digest");
 
                   updateCourierClaimDigest(courier.id, data.claimDigest);
+
+                  // Delete source package immediately — it's been picked up
+                  if (d.packageId) {
+                    const srcPkg = getPackageById(d.packageId);
+                    if (srcPkg) {
+                      deletePackage(d.packageId);
+                    }
+                  }
                 });
                 res.end(JSON.stringify({ ok: true }));
 
