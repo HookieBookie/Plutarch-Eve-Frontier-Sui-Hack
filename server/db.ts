@@ -668,6 +668,13 @@ export function initDb(dappsDir: string, tenant?: string): BetterSQLite3Database
         const data = JSON.parse(Buffer.from(backupEnv, "base64").toString("utf-8"));
         const result = importDatabase(data);
         console.log(`[DB] Auto-restored from DB_BACKUP: ${result.tablesRestored} tables, ${result.rowsRestored} rows`);
+        // Pre-seed the backup hash so the first auto-backup cycle sees
+        // "nothing changed" and doesn't push the same data back (which
+        // would trigger an infinite redeploy loop on Railway).
+        const seedJson = JSON.stringify(exportDatabase());
+        const seedB64 = Buffer.from(seedJson, "utf-8").toString("base64");
+        const { createHash: ch } = require("crypto") as typeof import("crypto");
+        _lastBackupHash = ch("md5").update(seedB64).digest("hex");
       } catch (err) {
         console.error("[DB] Failed to restore from DB_BACKUP:", err);
       }
