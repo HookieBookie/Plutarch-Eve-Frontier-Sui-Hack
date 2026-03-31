@@ -674,6 +674,9 @@ export function initDb(dappsDir: string, tenant?: string): BetterSQLite3Database
     }
   }
 
+  // Start periodic auto-backup to Railway DB_BACKUP env var
+  startAutoBackup();
+
   return _db;
 }
 
@@ -3787,4 +3790,86 @@ export function importDatabase(data: Record<string, unknown[]>): { tablesRestore
 
   tx();
   return { tablesRestored, rowsRestored };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Auto-backup: periodically push DB_BACKUP to Railway
+// ═══════════════════════════════════════════════════════════════════════════
+
+const BACKUP_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
+let _backupTimer: ReturnType<typeof setInterval> | null = null;
+let _lastBackupHash = "";
+
+async function pushBackupToRailway(): Promise<void> {
+  const token = process.env.RAILWAY_API_TOKEN;
+  const projectId = process.env.RAILWAY_PROJECT_ID;
+  const serviceId = process.env.RAILWAY_SERVICE_ID;
+  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID;
+  if (!token || !projectId || !serviceId || !environmentId) return;
+
+  try {
+    const data = exportDatabase();
+    const json = JSON.stringify(data);
+    const b64 = Buffer.from(json, "utf-8").toString("base64");
+
+    // Skip if nothing changed since last backup
+    const { createHash } = await import("crypto");
+    const hash = createHash("md5").update(b64).digest("hex");
+    if (hash === _lastBackupHash) return;
+
+    const query = `
+      mutation($input: VariableUpsertInput!) {
+        variableUpsert(input: $input)
+      }
+    `;
+    const variables = {
+      input: {
+        projectId,
+        serviceId,
+        environmentId,
+        name: "DB_BACKUP",
+        value: b64,
+      },
+    };
+
+    const res = await fetch("https://backboard.railway.com/graphql/v2", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+
+    if (res.ok) {
+      const result = await res.json() as { errors?: { message: string }[] };
+      if (result.errors?.length) {
+        console.error("[auto-backup] Railway API errors:", result.errors.map((e) => e.message).join(", "));
+      } else {
+        _lastBackupHash = hash;
+        const sizeKB = Math.round(b64.length / 1024);
+        console.log(`[auto-backup] ✓ DB_BACKUP updated (${sizeKB} KB)`);
+      }
+    } else {
+      console.error(`[auto-backup] Railway API ${res.status}: ${await res.text()}`);
+    }
+  } catch (err) {
+    console.error("[auto-backup] Failed:", err);
+  }
+}
+
+function startAutoBackup(): void {
+  const token = process.env.RAILWAY_API_TOKEN;
+  if (!token) {
+    console.log("[auto-backup] Skipped — RAILWAY_API_TOKEN not set");
+    return;
+  }
+  if (_backupTimer) return;
+
+  // Initial backup after 30s to let the DB stabilise
+  setTimeout(() => {
+    pushBackupToRailway();
+    _backupTimer = setInterval(pushBackupToRailway, BACKUP_INTERVAL_MS);
+  }, 30_000);
+  console.log(`[auto-backup] Scheduled every ${BACKUP_INTERVAL_MS / 1000}s`);
 }
