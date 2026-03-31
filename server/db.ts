@@ -19,6 +19,7 @@ import { initLocationKey, encryptField, decryptField } from "./crypto";
 import { seedDeployments } from "./seed";
 import path from "node:path";
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 
 let _db: BetterSQLite3Database | null = null;
 let _sqlite: InstanceType<typeof Database> | null = null;
@@ -663,13 +664,13 @@ export function initDb(dappsDir: string, tenant?: string): BetterSQLite3Database
   const ssuCount = _sqlite!.prepare("SELECT COUNT(*) as cnt FROM ssu_registrations").get() as { cnt: number };
   if (ssuCount.cnt === 0) {
     const volumePath = process.env.RAILWAY_VOLUME_MOUNT_PATH;
-    const backupFile = volumePath ? require("path").join(volumePath, "db-backup.json") : null;
+    const backupFile = volumePath ? path.join(volumePath, "db-backup.json") : null;
     let restored = false;
 
     // Try volume file first
-    if (backupFile && require("fs").existsSync(backupFile)) {
+    if (backupFile && fs.existsSync(backupFile)) {
       try {
-        const raw = require("fs").readFileSync(backupFile, "utf-8");
+        const raw = fs.readFileSync(backupFile, "utf-8");
         const data = JSON.parse(raw);
         const result = importDatabase(data);
         console.log(`[DB] Auto-restored from volume backup: ${result.tablesRestored} tables, ${result.rowsRestored} rows`);
@@ -3826,12 +3827,9 @@ function writeBackupToVolume(): void {
     const json = JSON.stringify(data);
 
     // Skip if nothing changed since last backup
-    const { createHash } = require("crypto") as typeof import("crypto");
     const hash = createHash("md5").update(json).digest("hex");
     if (hash === _lastBackupHash) return;
 
-    const fs = require("fs") as typeof import("fs");
-    const path = require("path") as typeof import("path");
     fs.mkdirSync(volumePath, { recursive: true });
     const backupFile = path.join(volumePath, "db-backup.json");
     fs.writeFileSync(backupFile, json, "utf-8");
