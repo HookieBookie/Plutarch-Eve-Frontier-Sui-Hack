@@ -659,29 +659,39 @@ export function initDb(dappsDir: string, tenant?: string): BetterSQLite3Database
   // Seed known tribe deployment records so they survive DB resets
   seedDeployments(_sqlite!);
 
-  // Auto-restore from DB_BACKUP env var if the DB is empty (fresh deploy)
-  const backupEnv = process.env.DB_BACKUP;
-  if (backupEnv) {
-    const ssuCount = _sqlite!.prepare("SELECT COUNT(*) as cnt FROM ssu_registrations").get() as { cnt: number };
-    if (ssuCount.cnt === 0) {
+  // Auto-restore: prefer volume backup file, then fall back to DB_BACKUP env var
+  const ssuCount = _sqlite!.prepare("SELECT COUNT(*) as cnt FROM ssu_registrations").get() as { cnt: number };
+  if (ssuCount.cnt === 0) {
+    const volumePath = process.env.RAILWAY_VOLUME_MOUNT_PATH;
+    const backupFile = volumePath ? require("path").join(volumePath, "db-backup.json") : null;
+    let restored = false;
+
+    // Try volume file first
+    if (backupFile && require("fs").existsSync(backupFile)) {
       try {
-        const data = JSON.parse(Buffer.from(backupEnv, "base64").toString("utf-8"));
+        const raw = require("fs").readFileSync(backupFile, "utf-8");
+        const data = JSON.parse(raw);
         const result = importDatabase(data);
-        console.log(`[DB] Auto-restored from DB_BACKUP: ${result.tablesRestored} tables, ${result.rowsRestored} rows`);
-        // Pre-seed the backup hash so the first auto-backup cycle sees
-        // "nothing changed" and doesn't push the same data back (which
-        // would trigger an infinite redeploy loop on Railway).
-        const seedJson = JSON.stringify(exportDatabase());
-        const seedB64 = Buffer.from(seedJson, "utf-8").toString("base64");
-        const { createHash: ch } = require("crypto") as typeof import("crypto");
-        _lastBackupHash = ch("md5").update(seedB64).digest("hex");
+        console.log(`[DB] Auto-restored from volume backup: ${result.tablesRestored} tables, ${result.rowsRestored} rows`);
+        restored = true;
+      } catch (err) {
+        console.error("[DB] Failed to restore from volume backup:", err);
+      }
+    }
+
+    // Fall back to DB_BACKUP env var (one-time seed)
+    if (!restored && process.env.DB_BACKUP) {
+      try {
+        const data = JSON.parse(Buffer.from(process.env.DB_BACKUP, "base64").toString("utf-8"));
+        const result = importDatabase(data);
+        console.log(`[DB] Auto-restored from DB_BACKUP env: ${result.tablesRestored} tables, ${result.rowsRestored} rows`);
       } catch (err) {
         console.error("[DB] Failed to restore from DB_BACKUP:", err);
       }
     }
   }
 
-  // Start periodic auto-backup to Railway DB_BACKUP env var
+  // Start periodic auto-backup to volume file (no redeploy triggered)
   startAutoBackup();
 
   return _db;
@@ -3800,83 +3810,51 @@ export function importDatabase(data: Record<string, unknown[]>): { tablesRestore
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Auto-backup: periodically push DB_BACKUP to Railway
+// Auto-backup: periodically write DB snapshot to Railway volume
 // ═══════════════════════════════════════════════════════════════════════════
 
 const BACKUP_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
 let _backupTimer: ReturnType<typeof setInterval> | null = null;
 let _lastBackupHash = "";
 
-async function pushBackupToRailway(): Promise<void> {
-  const token = process.env.RAILWAY_API_TOKEN;
-  const projectId = process.env.RAILWAY_PROJECT_ID;
-  const serviceId = process.env.RAILWAY_SERVICE_ID;
-  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID;
-  if (!token || !projectId || !serviceId || !environmentId) return;
+function writeBackupToVolume(): void {
+  const volumePath = process.env.RAILWAY_VOLUME_MOUNT_PATH;
+  if (!volumePath) return;
 
   try {
     const data = exportDatabase();
     const json = JSON.stringify(data);
-    const b64 = Buffer.from(json, "utf-8").toString("base64");
 
     // Skip if nothing changed since last backup
-    const { createHash } = await import("crypto");
-    const hash = createHash("md5").update(b64).digest("hex");
+    const { createHash } = require("crypto") as typeof import("crypto");
+    const hash = createHash("md5").update(json).digest("hex");
     if (hash === _lastBackupHash) return;
 
-    const query = `
-      mutation($input: VariableUpsertInput!) {
-        variableUpsert(input: $input)
-      }
-    `;
-    const variables = {
-      input: {
-        projectId,
-        serviceId,
-        environmentId,
-        name: "DB_BACKUP",
-        value: b64,
-      },
-    };
-
-    const res = await fetch("https://backboard.railway.com/graphql/v2", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ query, variables }),
-    });
-
-    if (res.ok) {
-      const result = await res.json() as { errors?: { message: string }[] };
-      if (result.errors?.length) {
-        console.error("[auto-backup] Railway API errors:", result.errors.map((e) => e.message).join(", "));
-      } else {
-        _lastBackupHash = hash;
-        const sizeKB = Math.round(b64.length / 1024);
-        console.log(`[auto-backup] ✓ DB_BACKUP updated (${sizeKB} KB)`);
-      }
-    } else {
-      console.error(`[auto-backup] Railway API ${res.status}: ${await res.text()}`);
-    }
+    const fs = require("fs") as typeof import("fs");
+    const path = require("path") as typeof import("path");
+    fs.mkdirSync(volumePath, { recursive: true });
+    const backupFile = path.join(volumePath, "db-backup.json");
+    fs.writeFileSync(backupFile, json, "utf-8");
+    _lastBackupHash = hash;
+    const sizeKB = Math.round(json.length / 1024);
+    console.log(`[auto-backup] ✓ ${backupFile} (${sizeKB} KB)`);
   } catch (err) {
     console.error("[auto-backup] Failed:", err);
   }
 }
 
 function startAutoBackup(): void {
-  const token = process.env.RAILWAY_API_TOKEN;
-  if (!token) {
-    console.log("[auto-backup] Skipped — RAILWAY_API_TOKEN not set");
+  const volumePath = process.env.RAILWAY_VOLUME_MOUNT_PATH;
+  if (!volumePath) {
+    console.log("[auto-backup] Skipped — RAILWAY_VOLUME_MOUNT_PATH not set");
     return;
   }
   if (_backupTimer) return;
 
   // Initial backup after 30s to let the DB stabilise
   setTimeout(() => {
-    pushBackupToRailway();
-    _backupTimer = setInterval(pushBackupToRailway, BACKUP_INTERVAL_MS);
+    writeBackupToVolume();
+    _backupTimer = setInterval(writeBackupToVolume, BACKUP_INTERVAL_MS);
   }, 30_000);
-  console.log(`[auto-backup] Scheduled every ${BACKUP_INTERVAL_MS / 1000}s`);
+  console.log(`[auto-backup] Scheduled every ${BACKUP_INTERVAL_MS / 1000}s → ${volumePath}/db-backup.json`);
 }
