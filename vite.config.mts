@@ -38,7 +38,7 @@ import {
   acceptContract, progressContractMission, addContractItemEscrow,
   clearContractItemEscrow, isContractFullyCompleted,
   insertDelivery, getDelivery, getDeliveriesBySsu, getDeliveriesByDestination, getDeliveriesBySource,
-  updateDeliveryStatus,
+  getActiveDeliveryByPackage, updateDeliveryStatus,
   addDeliveryCourier, getDeliveryCouriers, getDeliveryCouriersByWallet,
   updateCourierDeposit, updateCourierStatus, updateCourierClaimDigest, isDeliveryFullyDeposited,
   completeDeliveryGoal,
@@ -844,6 +844,11 @@ function tribeApiPlugin(tenantId: string): Plugin {
 
                   // If this is a Deliver contract, also create a delivery record
                   if (data.type === "Deliver" && data.deliveryItems && data.destinationSsuId) {
+                    // Prevent assigning a package to multiple deliveries
+                    if (data.packageId) {
+                      const existing = getActiveDeliveryByPackage(data.packageId);
+                      if (existing) throw new Error("This package is already assigned to an active delivery");
+                    }
                     const deliveryId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                     // Snapshot package metadata so we can recreate at destination after source is deleted
                     const srcPkg = data.packageId ? getPackageById(data.packageId) : null;
@@ -1023,6 +1028,11 @@ function tribeApiPlugin(tenantId: string): Plugin {
                 const items: DeliveryItem[] = data.items;
                 if (!items || items.length === 0) throw new Error("No items specified");
                 if (!data.destinationSsuId) throw new Error("No destination SSU specified");
+                // Prevent assigning a package to multiple deliveries
+                if (data.packageId) {
+                  const existing = getActiveDeliveryByPackage(data.packageId);
+                  if (existing) throw new Error("This package is already assigned to an active delivery");
+                }
                 const id = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                 // Snapshot package metadata so we can recreate at destination after source is deleted
                 const srcPkg = data.packageId ? getPackageById(data.packageId) : null;

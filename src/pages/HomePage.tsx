@@ -17,7 +17,7 @@ import { computeTieredRewards, parseMissionDisplay, decomposeConstruct, decompos
 import { MissionIcon } from "../components/ItemIcon";
 import { useWings } from "../hooks/useWings";
 import { useMembers } from "../hooks/useMembers";
-import { useEscrowFromEphemeral, useEscrowEphBatch, useClaim, useTrade, useReleaseBatch, usePickupBatch } from "../hooks/useEphemeralTransfer";
+import { useEscrowFromEphemeral, useEscrowBatch, useEscrowEphBatch, useClaim, useTrade, useReleaseBatch, usePickupBatch } from "../hooks/useEphemeralTransfer";
 import { useAllocations } from "../hooks/useAllocations";
 import { Select } from "../components/Select";
 import { useTerritoryData } from "../hooks/useTerritoryData";
@@ -86,6 +86,7 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
 
   // On-chain ephemeral storage transfer hooks
   const { escrow: escrowToOpen } = useEscrowFromEphemeral(ssuId || undefined);
+  const { escrowBatch: escrowMainBatch } = useEscrowBatch(ssuId || undefined);
   const { escrowEphBatch } = useEscrowEphBatch(ssuId || undefined);
   const { claim: onChainClaim } = useClaim(ssuId || undefined);
   const { releaseBatch: onChainReleaseBatch } = useReleaseBatch(ssuId || undefined);
@@ -754,14 +755,36 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
         }
       }
 
-      // SSU owner fallback: items are already in main storage, no on-chain transfer needed
+      // SSU owner fallback: items are in main storage, escrow to open (corp) storage
       if (!usedEphemeral && isSsuOwner && ssuInventory) {
         const allInMain = itemsToDeposit.every((item) =>
           findItemQuantity(ssuInventory.mainItems, item.typeId, item.itemName) >= item.quantity,
         );
 
         if (allInMain) {
-          usedEphemeral = true; // reuse flag to skip error
+          // Escrow from main → open so items enter corporation storage on-chain
+          const escrowItems = itemsToDeposit
+            .filter((it) => it.typeId > 0)
+            .map((it) => ({ typeId: it.typeId, quantity: it.quantity }));
+          if (escrowItems.length > 0) {
+            try {
+              const ok = await escrowMainBatch(
+                character.objectId,
+                character.ownerCapId,
+                escrowItems,
+              );
+              if (!ok) {
+                setContributeError("On-chain escrow to corp storage failed. Please try again.");
+                return;
+              }
+              setTimeout(() => queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] }), 2000);
+            } catch (e) {
+              console.error("[package-deliver] Owner escrow error:", e);
+              setContributeError(`Package delivery failed: ${(e as Error).message}`);
+              return;
+            }
+          }
+          usedEphemeral = true;
         } else {
           // Check what's missing
           for (const item of itemsToDeposit) {
@@ -801,6 +824,8 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
 
       queryClient.invalidateQueries({ queryKey: ["ssu-inventory"] });
       queryClient.invalidateQueries({ queryKey: ["incoming-deliveries"] });
+      queryClient.invalidateQueries({ queryKey: ["corporate-inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["packages"] });
       setContributeError(null);
     } catch (err) {
       console.error("[handleDeliveryPackageComplete] error:", err);
@@ -858,6 +883,8 @@ export function HomePage({ hiddenCategories }: HomePageProps) {
       }
 
       queryClient.invalidateQueries({ queryKey: ["incoming-deliveries"] });
+      queryClient.invalidateQueries({ queryKey: ["corporate-inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["packages"] });
       setContributeError(null);
     } catch (err) {
       console.error("[handleVerifyPackageDelivery] error:", err);
@@ -2020,6 +2047,7 @@ function ContractsPanel({
   const [cDeliveryMode, setCDeliveryMode] = useState<"items" | "package">("items");
   const [cSelectedPackageId, setCSelectedPackageId] = useState("");
   const { packages: cAvailablePackages } = usePackages(ssuId, tribeId);
+  const { data: cOutgoingDeliveries } = useDeliveries(ssuId, tribeId);
 
   const destinationOptions = territorySSUs.filter((s) => s.ssuId !== ssuId && s.locationGranted);
   const allOtherSsuIds = useMemo(() => territorySSUs.filter((s) => s.ssuId !== ssuId).map((s) => s.ssuId), [territorySSUs, ssuId]);
@@ -2062,8 +2090,12 @@ function ContractsPanel({
   }
 
   // Packages available for delivery (created or allocated, not listed/sold/cancelled)
+  // Exclude packages already assigned to an active delivery
+  const cAssignedPackageIds = new Set(
+    (cOutgoingDeliveries ?? []).filter((d) => d.packageId && (d.status === "pending" || d.status === "in-transit")).map((d) => d.packageId!),
+  );
   const cDeliverablePackages = cAvailablePackages.filter(
-    (p) => p.status === "created" || p.status === "allocated",
+    (p) => (p.status === "created" || p.status === "allocated") && !cAssignedPackageIds.has(p.id),
   );
 
   function cSelectPackageForDelivery(pkgId: string) {

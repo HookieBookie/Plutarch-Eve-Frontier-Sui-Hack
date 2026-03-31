@@ -3382,6 +3382,13 @@ export function getDeliveriesByDestination(destinationSsuId: string): DeliveryRo
     .all(destinationSsuId).map(mapDeliveryRow);
 }
 
+export function getActiveDeliveryByPackage(packageId: string): DeliveryRow | null {
+  const r = _sqlite!.prepare(
+    `SELECT * FROM deliveries WHERE package_id = ? AND status IN ('pending', 'in-transit')`,
+  ).get(packageId) as any;
+  return r ? mapDeliveryRow(r) : null;
+}
+
 export function updateDeliveryStatus(id: string, status: string): void {
   _db!.update(deliveries).set({ status }).where(eq(deliveries.id, id)).run();
 }

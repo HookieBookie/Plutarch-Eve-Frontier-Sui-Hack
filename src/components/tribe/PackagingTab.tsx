@@ -9,6 +9,7 @@ import { useAllocations } from "../../hooks/useAllocations";
 import { useWings } from "../../hooks/useWings";
 import { useEscrowBatch, useEscrowEphBatch, useReleaseBatch, useReleaseEphBatch } from "../../hooks/useEphemeralTransfer";
 import { parseFitting, type ParsedFitting } from "../../data/supplyChain";
+import { useDeliveries } from "../../hooks/useDelivery";
 import { ItemIcon } from "../ItemIcon";
 import { Select } from "../Select";
 
@@ -31,6 +32,12 @@ export function PackagingTab({ isOwner }: PackagingTabProps) {
   const { escrowEphBatch } = useEscrowEphBatch(ssuId || undefined);
   const { releaseBatch } = useReleaseBatch(ssuId || undefined);
   const { releaseEphBatch } = useReleaseEphBatch(ssuId || undefined);
+  const { data: outgoingDeliveries } = useDeliveries(ssuId, tribeId);
+
+  // Packages currently assigned to an active delivery
+  const assignedPackageIds = useMemo(() => new Set(
+    (outgoingDeliveries ?? []).filter((d) => d.packageId && (d.status === "pending" || d.status === "in-transit")).map((d) => d.packageId!),
+  ), [outgoingDeliveries]);
 
   const [mode, setMode] = useState<Mode>("list");
   const [fittingText, setFittingText] = useState("");
@@ -421,6 +428,7 @@ export function PackagingTab({ isOwner }: PackagingTabProps) {
               {visiblePackages.map((pkg) => {
                 const isActive = actionPkg === pkg.id;
                 const isMine = pkg.createdBy === account?.address;
+                const isAssigned = assignedPackageIds.has(pkg.id);
                 return (
                   <div key={pkg.id} className="inventory-item-row">
                     <div className="inventory-item">
@@ -433,9 +441,9 @@ export function PackagingTab({ isOwner }: PackagingTabProps) {
                         {pkg.items.length} item{pkg.items.length !== 1 ? "s" : ""}
                       </span>
                       <span style={{ fontSize: "0.65rem", marginLeft: "0.3rem", color: pkg.status === "listed" ? "var(--color-success, #6c6)" : pkg.status === "allocated" || pkg.status === "sold" ? "var(--color-primary, #69f)" : "var(--text-muted, #888)" }}>
-                        {pkg.status}
+                        {isAssigned ? "📦 assigned to delivery" : pkg.status}
                       </span>
-                      {pkg.status === "created" && (isOwner || isMine) && (
+                      {pkg.status === "created" && (isOwner || isMine) && !isAssigned && (
                         <div style={{ marginLeft: "auto", display: "flex", gap: "0.3rem" }}>
                           {isOwner && (
                             <>

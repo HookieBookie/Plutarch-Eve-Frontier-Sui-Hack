@@ -34,7 +34,7 @@ import { useTicker } from "../../context/DeploymentContext";
 import { Select } from "../Select";
 import { useSsuInventory, useSsuOnChainNames, type InventoryItem } from "../../hooks/useSsuInventory";
 import { useTerritoryData } from "../../hooks/useTerritoryData";
-import { useDeliveryActions, useIncomingDeliveries, type DeliveryItem } from "../../hooks/useDelivery";
+import { useDeliveryActions, useDeliveries, useIncomingDeliveries, type DeliveryItem } from "../../hooks/useDelivery";
 import { usePackages } from "../../hooks/usePackages";
 import { ssuDisplayName, buildSsuLabel, isLikelyAddress, anonSsuName } from "../../utils/ssuNames";
 import { useCurrentAccount } from "@mysten/dapp-kit-react";
@@ -65,6 +65,7 @@ export function OperationsTab({ isOwner }: { isOwner: boolean }) {
 
   // Incoming deliveries targeting this SSU
   const { data: incomingDeliveries } = useIncomingDeliveries(ssuId);
+  const { data: outgoingDeliveries } = useDeliveries(ssuId, tribeId);
   const { progressDelivery } = useDeliveryActions(ssuId, tribeId);
   const [deliveryActing, setDeliveryActing] = useState<string | null>(null);
 
@@ -171,8 +172,12 @@ export function OperationsTab({ isOwner }: { isOwner: boolean }) {
     }));
 
   // Packages available for delivery (created or allocated, not listed/sold/cancelled)
+  // Exclude packages already assigned to an active delivery
+  const assignedPackageIds = new Set(
+    (outgoingDeliveries ?? []).filter((d) => d.packageId && (d.status === "pending" || d.status === "in-transit")).map((d) => d.packageId!),
+  );
   const deliverablePackages = availablePackages.filter(
-    (p) => p.status === "created" || p.status === "allocated",
+    (p) => (p.status === "created" || p.status === "allocated") && !assignedPackageIds.has(p.id),
   );
 
   function selectPackageForDelivery(pkgId: string) {
