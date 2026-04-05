@@ -778,3 +778,47 @@ export const packageItems = sqliteTable(
     index("idx_pkg_items_package").on(table.packageId),
   ],
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Overlay — game overlay mission subscriptions and alert preferences
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ---------------------------------------------------------------------------
+// Overlay subscriptions — missions a wallet has chosen to track in the overlay
+// ---------------------------------------------------------------------------
+export const overlaySubscriptions = sqliteTable(
+  "overlay_subscriptions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    wallet: text("wallet").notNull(),
+    ssuId: text("ssu_id").notNull(),
+    tribeId: text("tribe_id").notNull(),
+    goalId: integer("goal_id").notNull(),
+    missionIdx: integer("mission_idx").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("idx_overlay_wallet").on(table.wallet, table.ssuId, table.tribeId),
+    index("idx_overlay_goal").on(table.goalId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Overlay settings — per-wallet display preferences for the overlay
+// ---------------------------------------------------------------------------
+export const overlaySettings = sqliteTable(
+  "overlay_settings",
+  {
+    wallet: text("wallet").primaryKey(),
+    opacity: real("opacity").notNull().default(0.85),
+    position: text("position").notNull().default("top-right"),  // "top-left" | "top-right" | "bottom-left" | "bottom-right"
+    showAlerts: integer("show_alerts", { mode: "boolean" }).notNull().default(true),
+    showMissions: integer("show_missions", { mode: "boolean" }).notNull().default(true),
+    showFuel: integer("show_fuel", { mode: "boolean" }).notNull().default(true),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+);

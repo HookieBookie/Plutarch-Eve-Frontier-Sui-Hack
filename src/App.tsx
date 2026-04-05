@@ -168,6 +168,18 @@ function App() {
             {effectivePage === "admin" && <AdminPage onNavigateHome={() => setPage("home")} />}
           </main>
           <PriceTicker />
+
+          {/* Pop-out overlay button — opens the overlay in a compact window */}
+          <button
+            className="overlay-popout-btn"
+            title="Open mission overlay (for use while in-game)"
+            onClick={() => {
+              const params = new URLSearchParams({ ssuId: activeSsuId, tribeId });
+              window.open(`/overlay?${params.toString()}`, "plutarch-overlay", "width=320,height=480,resizable=yes,scrollbars=no");
+            }}
+          >
+            ⊞ Overlay
+          </button>
         </div>
       </ContractProvider>
       </GoalProvider>

@@ -31,6 +31,7 @@ import "./main.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App.tsx";
+import { OverlayPage } from "./pages/OverlayPage.tsx";
 import {
   VaultProvider,
   SmartObjectProvider,
@@ -111,6 +112,12 @@ const dAppKit = createDAppKit({
 
 const queryClient = new QueryClient();
 
+/** Detect if we're rendering the standalone overlay page. */
+const isOverlayRoute = window.location.pathname === "/overlay";
+const overlayParams = isOverlayRoute
+  ? new URLSearchParams(window.location.search)
+  : null;
+
 /** Provider stack: QueryClient → DAppKit (Sui wallet) → Vault → SmartObject → Notification. */
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -121,7 +128,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <VaultProvider>
             <SmartObjectProvider>
               <NotificationProvider>
-                <App />
+                {isOverlayRoute ? (
+                  <OverlayPage
+                    ssuId={overlayParams?.get("ssuId") ?? ""}
+                    tribeId={overlayParams?.get("tribeId") ?? ""}
+                  />
+                ) : (
+                  <App />
+                )}
               </NotificationProvider>
             </SmartObjectProvider>
           </VaultProvider>

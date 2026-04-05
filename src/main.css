@@ -4083,3 +4083,259 @@ h4 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--color-accent); }
   color: rgba(250,250,229,0.9);
   background: rgba(250,250,229,0.08);
 }
+/* ========== Game Overlay ========== */
+
+/* Pop-out button in the main app shell */
+.overlay-popout-btn {
+  position: fixed;
+  bottom: 2.5rem;
+  right: 1rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding: 0.35rem 0.65rem;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 400;
+  transition: background 0.15s, color 0.15s;
+}
+.overlay-popout-btn:hover {
+  background: var(--color-accent);
+  color: #000;
+}
+
+/* Overlay pop-out window root */
+.overlay-page {
+  background: rgba(11, 11, 11, 0.92);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  min-width: 280px;
+  max-width: 360px;
+  font-size: 0.8rem;
+  user-select: none;
+  overflow: hidden;
+}
+
+.overlay-page-disconnected {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+/* Title bar */
+.overlay-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.overlay-logo {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  color: var(--color-accent);
+  flex: 1;
+}
+
+.overlay-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.overlay-status-ok { background: var(--color-success); }
+.overlay-status-error { background: var(--color-error); }
+
+.overlay-minimise {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+}
+.overlay-minimise:hover { color: var(--color-text); }
+
+/* Body */
+.overlay-body {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.overlay-empty {
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0.75rem 0;
+}
+
+/* Mission cards */
+.overlay-missions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.overlay-mission-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+}
+
+.overlay-mission-done {
+  border-color: var(--color-success);
+  opacity: 0.75;
+}
+
+.overlay-mission-header {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  margin-bottom: 0.2rem;
+}
+
+.overlay-mission-phase {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.overlay-mission-goal {
+  font-size: 0.7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay-mission-desc {
+  font-size: 0.78rem;
+  margin-bottom: 0.3rem;
+  line-height: 1.3;
+}
+
+.overlay-mission-progress {
+  height: 3px;
+  background: rgba(250,250,229,0.12);
+  border-radius: 2px;
+  margin-bottom: 0.2rem;
+  overflow: hidden;
+}
+
+.overlay-mission-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.overlay-mission-qty {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.overlay-mission-complete-badge {
+  color: var(--color-success);
+  font-size: 0.75rem;
+}
+
+/* Alert banners */
+.overlay-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.overlay-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 4px 4px 0;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.overlay-alert-icon { flex-shrink: 0; font-size: 0.75rem; }
+.overlay-alert-msg { flex: 1; }
+.overlay-alert-dismiss {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0.1rem 0.2rem;
+}
+.overlay-alert-dismiss:hover { color: var(--color-text); }
+
+/* Overlay mission subscription panel (inside main dApp) */
+.overlay-subscribe {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.overlay-subscribe-goal { }
+
+.overlay-subscribe-goal-header {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.overlay-subscribe-goal-type {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--color-accent);
+  background: rgba(255,102,0,0.1);
+  border: 1px solid rgba(255,102,0,0.3);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+  flex-shrink: 0;
+}
+
+.overlay-subscribe-goal-desc {
+  font-size: 0.82rem;
+  color: var(--color-text);
+}
+
+.overlay-subscribe-missions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-left: 0.5rem;
+}
+
+.overlay-subscribe-mission {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+}
+.overlay-subscribe-mission:hover { color: var(--color-accent); }
+
+.overlay-subscribe-phase {
+  font-family: "Frontier Disket Mono", monospace;
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}

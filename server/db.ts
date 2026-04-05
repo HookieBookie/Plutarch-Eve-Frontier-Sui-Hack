@@ -14,6 +14,7 @@ import {
   deliveries, deliveryCouriers,
   packages, packageItems,
   corporateInventory,
+  overlaySubscriptions, overlaySettings,
 } from "./schema";
 import { initLocationKey, encryptField, decryptField } from "./crypto";
 import { seedDeployments } from "./seed";
@@ -549,6 +550,29 @@ export function initDb(dappsDir: string, tenant?: string): BetterSQLite3Database
     );
     CREATE INDEX IF NOT EXISTS idx_corp_inv_scope ON corporate_inventory(ssu_id, tribe_id);
     CREATE INDEX IF NOT EXISTS idx_corp_inv_item ON corporate_inventory(ssu_id, tribe_id, type_id);
+
+    -- Overlay: mission subscriptions and display settings
+    CREATE TABLE IF NOT EXISTS overlay_subscriptions (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      wallet      TEXT NOT NULL,
+      ssu_id      TEXT NOT NULL,
+      tribe_id    TEXT NOT NULL,
+      goal_id     INTEGER NOT NULL,
+      mission_idx INTEGER NOT NULL,
+      created_at  INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
+    CREATE INDEX IF NOT EXISTS idx_overlay_wallet ON overlay_subscriptions(wallet, ssu_id, tribe_id);
+    CREATE INDEX IF NOT EXISTS idx_overlay_goal ON overlay_subscriptions(goal_id);
+
+    CREATE TABLE IF NOT EXISTS overlay_settings (
+      wallet         TEXT PRIMARY KEY,
+      opacity        REAL NOT NULL DEFAULT 0.85,
+      position       TEXT NOT NULL DEFAULT 'top-right',
+      show_alerts    INTEGER NOT NULL DEFAULT 1,
+      show_missions  INTEGER NOT NULL DEFAULT 1,
+      show_fuel      INTEGER NOT NULL DEFAULT 1,
+      updated_at     INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
   `);
 
   // Incremental migrations — add columns that may not exist in older DBs
@@ -3855,4 +3879,143 @@ function startAutoBackup(): void {
     _backupTimer = setInterval(writeBackupToVolume, BACKUP_INTERVAL_MS);
   }, 30_000);
   console.log(`[auto-backup] Scheduled every ${BACKUP_INTERVAL_MS / 1000}s → ${volumePath}/db-backup.json`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Overlay — mission subscriptions & display settings
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface OverlaySubscription {
+  id: number;
+  wallet: string;
+  ssuId: string;
+  tribeId: string;
+  goalId: number;
+  missionIdx: number;
+  createdAt: Date;
+}
+
+export interface OverlaySettingsRow {
+  wallet: string;
+  opacity: number;
+  position: string;
+  showAlerts: boolean;
+  showMissions: boolean;
+  showFuel: boolean;
+  updatedAt: Date;
+}
+
+/** List all overlay subscriptions for a wallet scoped to an SSU/tribe. */
+export function getOverlaySubscriptions(wallet: string, ssuId: string, tribeId: string): OverlaySubscription[] {
+  const db = _db!;
+  return db
+    .select()
+    .from(overlaySubscriptions)
+    .where(
+      and(
+        eq(overlaySubscriptions.wallet, wallet.toLowerCase()),
+        eq(overlaySubscriptions.ssuId, ssuId),
+        eq(overlaySubscriptions.tribeId, tribeId),
+      ),
+    )
+    .all() as unknown as OverlaySubscription[];
+}
+
+/** Add a mission subscription for the overlay (idempotent). */
+export function addOverlaySubscription(wallet: string, ssuId: string, tribeId: string, goalId: number, missionIdx: number): void {
+  const db = _db!;
+  const safeWallet = wallet.toLowerCase();
+  // Check for existing subscription to keep it idempotent
+  const existing = db
+    .select()
+    .from(overlaySubscriptions)
+    .where(
+      and(
+        eq(overlaySubscriptions.wallet, safeWallet),
+        eq(overlaySubscriptions.ssuId, ssuId),
+        eq(overlaySubscriptions.tribeId, tribeId),
+        eq(overlaySubscriptions.goalId, goalId),
+        eq(overlaySubscriptions.missionIdx, missionIdx),
+      ),
+    )
+    .get();
+  if (existing) return;
+  db.insert(overlaySubscriptions).values({
+    wallet: safeWallet,
+    ssuId,
+    tribeId,
+    goalId,
+    missionIdx,
+    createdAt: new Date(),
+  }).run();
+}
+
+/** Remove a mission subscription. */
+export function removeOverlaySubscription(wallet: string, ssuId: string, tribeId: string, goalId: number, missionIdx: number): void {
+  const db = _db!;
+  db.delete(overlaySubscriptions)
+    .where(
+      and(
+        eq(overlaySubscriptions.wallet, wallet.toLowerCase()),
+        eq(overlaySubscriptions.ssuId, ssuId),
+        eq(overlaySubscriptions.tribeId, tribeId),
+        eq(overlaySubscriptions.goalId, goalId),
+        eq(overlaySubscriptions.missionIdx, missionIdx),
+      ),
+    )
+    .run();
+}
+
+/** Remove all overlay subscriptions for a wallet+ssu (e.g. on SSU change). */
+export function clearOverlaySubscriptions(wallet: string, ssuId: string, tribeId: string): void {
+  const db = _db!;
+  db.delete(overlaySubscriptions)
+    .where(
+      and(
+        eq(overlaySubscriptions.wallet, wallet.toLowerCase()),
+        eq(overlaySubscriptions.ssuId, ssuId),
+        eq(overlaySubscriptions.tribeId, tribeId),
+      ),
+    )
+    .run();
+}
+
+/** Get overlay display settings for a wallet (creates defaults if not present). */
+export function getOverlaySettings(wallet: string): OverlaySettingsRow {
+  const db = _db!;
+  const row = db
+    .select()
+    .from(overlaySettings)
+    .where(eq(overlaySettings.wallet, wallet.toLowerCase()))
+    .get() as unknown as OverlaySettingsRow | undefined;
+  if (row) return row;
+  return { wallet, opacity: 0.85, position: "top-right", showAlerts: true, showMissions: true, showFuel: true, updatedAt: new Date() };
+}
+
+/** Upsert overlay display settings. */
+export function setOverlaySettings(wallet: string, patch: Partial<Omit<OverlaySettingsRow, "wallet" | "updatedAt">>): void {
+  const db = _db!;
+  const existing = getOverlaySettings(wallet);
+  db.insert(overlaySettings)
+    .values({
+      wallet: wallet.toLowerCase(),
+      opacity: patch.opacity ?? existing.opacity,
+      position: patch.position ?? existing.position,
+      showAlerts: patch.showAlerts ?? existing.showAlerts,
+      showMissions: patch.showMissions ?? existing.showMissions,
+      showFuel: patch.showFuel ?? existing.showFuel,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: overlaySettings.wallet,
+      set: {
+        opacity: patch.opacity ?? existing.opacity,
+        position: patch.position ?? existing.position,
+        showAlerts: patch.showAlerts ?? existing.showAlerts,
+        showMissions: patch.showMissions ?? existing.showMissions,
+        showFuel: patch.showFuel ?? existing.showFuel,
+        updatedAt: new Date(),
+      },
+    })
+    .run();
 }

@@ -1,0 +1,36 @@
+{
+  "name": "plutarch-overlay",
+  "version": "1.0.0",
+  "description": "Plutarch Eve Frontier mission overlay companion app",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": ["eve-frontier", "overlay", "plutarch"],
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^36.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.plutarch.overlay",
+    "productName": "Plutarch Overlay",
+    "files": ["electron/**/*", "assets/**/*"],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    }
+  }
+}

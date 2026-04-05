@@ -47,6 +47,8 @@ import {
   updatePackageStatus, getPackageItemsByOrderId,
   getCorporateInventory, getAllCorporateInventory, addCorporateInventory, removeCorporateInventory,
   exportDatabase, importDatabase,
+  getOverlaySubscriptions, addOverlaySubscription, removeOverlaySubscription, clearOverlaySubscriptions,
+  getOverlaySettings, setOverlaySettings,
 } from "./server/db";
 
 /** Path to the coin_template Move project */
@@ -2355,6 +2357,259 @@ function tribeApiPlugin(tenantId: string): Plugin {
 
         res.statusCode = 405;
         res.end(JSON.stringify({ error: "Method not allowed" }));
+      });
+
+      // ── Overlay subscriptions ──
+      server.middlewares.use("/api/overlay-subscriptions", (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        const url = new URL(req.url ?? "/", "http://localhost");
+        const wallet = url.searchParams.get("wallet") ?? "";
+        const ssuId = url.searchParams.get("ssuId") ?? "";
+        const tribeId = url.searchParams.get("tribeId") ?? "";
+
+        if (req.method === "GET") {
+          if (!wallet || !ssuId || !tribeId) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: "Missing wallet, ssuId, or tribeId" }));
+            return;
+          }
+          res.end(JSON.stringify(getOverlaySubscriptions(wallet, ssuId, tribeId)));
+          return;
+        }
+
+        if (req.method === "POST" || req.method === "DELETE") {
+          let body = "";
+          req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+          req.on("end", () => {
+            try {
+              const data = deepSanitise(JSON.parse(body));
+              const w = String(data.wallet ?? wallet);
+              const s = String(data.ssuId ?? ssuId);
+              const t = String(data.tribeId ?? tribeId);
+              const goalId = Number(data.goalId);
+              const missionIdx = Number(data.missionIdx);
+              if (!w || !s || !t || isNaN(goalId) || isNaN(missionIdx)) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ error: "Missing wallet, ssuId, tribeId, goalId, or missionIdx" }));
+                return;
+              }
+              if (req.method === "POST") {
+                addOverlaySubscription(w, s, t, goalId, missionIdx);
+              } else {
+                removeOverlaySubscription(w, s, t, goalId, missionIdx);
+              }
+              res.end(JSON.stringify({ ok: true }));
+            } catch {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: "Invalid JSON" }));
+            }
+          });
+          return;
+        }
+
+        res.statusCode = 405;
+        res.end(JSON.stringify({ error: "Method not allowed" }));
+      });
+
+      // ── Overlay settings ──
+      server.middlewares.use("/api/overlay-settings", (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        const url = new URL(req.url ?? "/", "http://localhost");
+        const wallet = url.searchParams.get("wallet") ?? "";
+
+        if (req.method === "GET") {
+          if (!wallet) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: "Missing wallet" }));
+            return;
+          }
+          res.end(JSON.stringify(getOverlaySettings(wallet)));
+          return;
+        }
+
+        if (req.method === "POST") {
+          let body = "";
+          req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+          req.on("end", () => {
+            try {
+              const data = deepSanitise(JSON.parse(body));
+              const w = String(data.wallet ?? wallet);
+              if (!w) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ error: "Missing wallet" }));
+                return;
+              }
+              setOverlaySettings(w, {
+                opacity: data.opacity !== undefined ? Number(data.opacity) : undefined,
+                position: data.position !== undefined ? String(data.position) : undefined,
+                showAlerts: data.showAlerts !== undefined ? Boolean(data.showAlerts) : undefined,
+                showMissions: data.showMissions !== undefined ? Boolean(data.showMissions) : undefined,
+                showFuel: data.showFuel !== undefined ? Boolean(data.showFuel) : undefined,
+              });
+              res.end(JSON.stringify({ ok: true }));
+            } catch {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: "Invalid JSON" }));
+            }
+          });
+          return;
+        }
+
+        res.statusCode = 405;
+        res.end(JSON.stringify({ error: "Method not allowed" }));
+      });
+
+      // ── Overlay data — combines subscribed missions + system alerts ──
+      server.middlewares.use("/api/overlay-data", (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        if (req.method !== "GET") {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+        const url = new URL(req.url ?? "/", "http://localhost");
+        const wallet = url.searchParams.get("wallet") ?? "";
+        const ssuId = url.searchParams.get("ssuId") ?? "";
+        const tribeId = url.searchParams.get("tribeId") ?? "";
+        if (!wallet || !ssuId || !tribeId) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: "Missing wallet, ssuId, or tribeId" }));
+          return;
+        }
+
+        const subs = getOverlaySubscriptions(wallet, ssuId, tribeId);
+        const allGoals = getGoals(ssuId, tribeId);
+        const settings = getOverlaySettings(wallet);
+
+        // Build subscribed mission cards
+        const missions = subs.map((sub) => {
+          const goal = allGoals.find((g: { id: number }) => g.id === sub.goalId);
+          if (!goal) return null;
+          const rawMissions: Array<{ idx: number; phase: string; description: string; quantity: number; completedQty: number; isPublished: boolean }> = (goal as { missions?: Array<{ idx: number; phase: string; description: string; quantity: number; completedQty: number; isPublished: boolean }> }).missions ?? [];
+          const mission = rawMissions.find((m) => m.idx === sub.missionIdx);
+          if (!mission) return null;
+          return {
+            goalId: goal.id,
+            goalDescription: (goal as { description: string }).description,
+            goalStatus: (goal as { status: string }).status,
+            missionIdx: mission.idx,
+            phase: mission.phase,
+            description: mission.description,
+            quantity: mission.quantity,
+            completedQty: mission.completedQty,
+            progressPct: mission.quantity > 0 ? Math.min(100, Math.round((mission.completedQty / mission.quantity) * 100)) : 0,
+            isPublished: mission.isPublished,
+          };
+        }).filter(Boolean);
+
+        // Build alerts — highlight goals nearing completion or needing attention
+        const alerts: Array<{ type: string; message: string; severity: string }> = [];
+        for (const goal of allGoals) {
+          const g = goal as { id: number; status: string; description: string; ongoing: boolean; missions?: Array<{ isPublished: boolean; quantity: number; completedQty: number }> };
+          if (g.status !== "published") continue;
+          const pubMissions = (g.missions ?? []).filter((m) => m.isPublished);
+          if (pubMissions.length === 0) continue;
+          const totalQty = pubMissions.reduce((s: number, m: { quantity: number }) => s + m.quantity, 0);
+          const doneQty = pubMissions.reduce((s: number, m: { completedQty: number }) => s + m.completedQty, 0);
+          const pct = totalQty > 0 ? (doneQty / totalQty) * 100 : 0;
+          if (pct >= 90 && pct < 100) {
+            alerts.push({ type: "goal_near_complete", message: `Goal "${g.description}" is ${Math.round(pct)}% complete`, severity: "info" });
+          }
+          if (pct >= 100 && !g.ongoing) {
+            alerts.push({ type: "goal_complete", message: `Goal "${g.description}" is ready to complete`, severity: "success" });
+          }
+        }
+
+        res.end(JSON.stringify({ missions, alerts, settings, timestamp: Date.now() }));
+      });
+
+      // ── Overlay stream — Server-Sent Events for real-time overlay updates ──
+      server.middlewares.use("/api/overlay-stream", (req, res) => {
+        if (req.method !== "GET") {
+          res.statusCode = 405;
+          res.end("Method not allowed");
+          return;
+        }
+        const url = new URL(req.url ?? "/", "http://localhost");
+        const wallet = url.searchParams.get("wallet") ?? "";
+        const ssuId = url.searchParams.get("ssuId") ?? "";
+        const tribeId = url.searchParams.get("tribeId") ?? "";
+        if (!wallet || !ssuId || !tribeId) {
+          res.statusCode = 400;
+          res.end("Missing wallet, ssuId, or tribeId");
+          return;
+        }
+
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.setHeader("X-Accel-Buffering", "no");
+
+        const sendData = () => {
+          try {
+            const subs = getOverlaySubscriptions(wallet, ssuId, tribeId);
+            const allGoals = getGoals(ssuId, tribeId);
+            const settings = getOverlaySettings(wallet);
+
+            const missions = subs.map((sub) => {
+              const goal = allGoals.find((g: { id: number }) => g.id === sub.goalId);
+              if (!goal) return null;
+              const rawMissions: Array<{ idx: number; phase: string; description: string; quantity: number; completedQty: number; isPublished: boolean }> = (goal as { missions?: Array<{ idx: number; phase: string; description: string; quantity: number; completedQty: number; isPublished: boolean }> }).missions ?? [];
+              const mission = rawMissions.find((m) => m.idx === sub.missionIdx);
+              if (!mission) return null;
+              return {
+                goalId: (goal as { id: number }).id,
+                goalDescription: (goal as { description: string }).description,
+                goalStatus: (goal as { status: string }).status,
+                missionIdx: mission.idx,
+                phase: mission.phase,
+                description: mission.description,
+                quantity: mission.quantity,
+                completedQty: mission.completedQty,
+                progressPct: mission.quantity > 0 ? Math.min(100, Math.round((mission.completedQty / mission.quantity) * 100)) : 0,
+                isPublished: mission.isPublished,
+              };
+            }).filter(Boolean);
+
+            const alerts: Array<{ type: string; message: string; severity: string }> = [];
+            for (const goal of allGoals) {
+              const g = goal as { id: number; status: string; description: string; ongoing: boolean; missions?: Array<{ isPublished: boolean; quantity: number; completedQty: number }> };
+              if (g.status !== "published") continue;
+              const pubMissions = (g.missions ?? []).filter((m) => m.isPublished);
+              if (pubMissions.length === 0) continue;
+              const totalQty = pubMissions.reduce((s: number, m: { quantity: number }) => s + m.quantity, 0);
+              const doneQty = pubMissions.reduce((s: number, m: { completedQty: number }) => s + m.completedQty, 0);
+              const pct = totalQty > 0 ? (doneQty / totalQty) * 100 : 0;
+              if (pct >= 90 && pct < 100) {
+                alerts.push({ type: "goal_near_complete", message: `Goal "${g.description}" is ${Math.round(pct)}% complete`, severity: "info" });
+              }
+              if (pct >= 100 && !g.ongoing) {
+                alerts.push({ type: "goal_complete", message: `Goal "${g.description}" is ready to complete`, severity: "success" });
+              }
+            }
+
+            const payload = JSON.stringify({ missions, alerts, settings, timestamp: Date.now() });
+            res.write(`data: ${payload}\n\n`);
+          } catch {
+            // SSE errors are non-fatal — client will reconnect
+          }
+        };
+
+        // Send initial snapshot immediately
+        sendData();
+
+        // Push updates every 10 seconds
+        const interval = setInterval(sendData, 10_000);
+
+        // Send a keepalive comment every 30 seconds to prevent proxy timeouts
+        const keepalive = setInterval(() => {
+          res.write(": keepalive\n\n");
+        }, 30_000);
+
+        req.on("close", () => {
+          clearInterval(interval);
+          clearInterval(keepalive);
+        });
       });
   }
 
