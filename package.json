@@ -17,7 +17,10 @@
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "tunnel": "cloudflared tunnel --url http://localhost:5174"
+    "tunnel": "cloudflared tunnel --url http://localhost:5174",
+    "overlay:install": "npm install --prefix overlay",
+    "overlay:dev": "npm run dev --prefix overlay",
+    "overlay:start": "npm start --prefix overlay"
   },
   "dependencies": {
     "@evefrontier/dapp-kit": "^0.1.2",

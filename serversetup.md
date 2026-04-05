@@ -270,3 +270,78 @@ $metricsPort = Get-NetTCPConnection -OwningProcess $cfPids -State Listen -EA 0 |
 $url = (ConvertFrom-Json (Invoke-WebRequest "http://127.0.0.1:$metricsPort/quicktunnel" -UseBasicParsing).Content).hostname
 (Invoke-WebRequest "https://$url/" -UseBasicParsing -TimeoutSec 10).StatusCode  # must be 200
 ```
+
+---
+
+## Running the Overlay locally (dev mode)
+
+Follow Steps 1–4 above first so the dApp is running on port 5174.
+The Electron overlay defaults to `http://localhost:5174` and will work with
+the local server and/or the Cloudflare tunnel URL.
+
+> **Why local, not ef-plutarch.com?**  The overlay is on a feature branch
+> and has not been merged into `main`. Running it locally against port 5174
+> keeps the live service at `ef-plutarch.com` completely untouched.
+
+### Step A — Install overlay dependencies (one-time)
+
+From the repository root:
+
+```bash
+pnpm overlay:install
+```
+
+Or directly:
+
+```bash
+cd overlay && npm install
+```
+
+### Step B — Start the Electron overlay
+
+Open a **new terminal** (keep the dApp terminal running) and run one of:
+
+```bash
+# From repo root (recommended):
+pnpm overlay:dev      # Electron + DevTools, targets http://localhost:5174
+
+# Or with full dev tools disabled:
+pnpm overlay:start    # same but no DevTools
+
+# Or from inside the overlay directory:
+cd overlay
+npm run dev           # Electron + DevTools
+npm start             # no DevTools
+```
+
+The overlay window opens immediately and connects to the dApp at
+`http://localhost:5174/overlay`.
+
+### Step C — Verify the connection
+
+1. The overlay title-bar shows a **green status dot** when the SSE stream
+   is live.  An orange/red dot means it cannot reach the dApp.
+2. Open `http://localhost:5174` in a browser, navigate to **Home**, and use
+   the **⊞ Overlay** button (bottom-right) to open the subscription manager.
+   Tick the missions you want to track — the Electron window updates within
+   10 seconds.
+
+### Using the Cloudflare tunnel URL instead of localhost
+
+If you need the Electron overlay to point at the public tunnel URL (e.g. to
+test from a different machine, or to share with a co-player during the
+hackathon), open Settings from the system-tray icon and change the
+**dApp URL** field:
+
+```
+https://<subdomain>.trycloudflare.com
+```
+
+Save and the overlay reloads against the tunnel.  **The tunnel must be
+running** (Step 4) or the overlay will show a red status dot.
+
+### Teardown
+
+Stop the overlay by closing its window or via the tray → **Quit**.
+The dApp (port 5174) and the tunnel can then be stopped independently as
+described in the Teardown section above.
