@@ -2459,6 +2459,67 @@ function tribeApiPlugin(tenantId: string): Plugin {
         res.end(JSON.stringify({ error: "Method not allowed" }));
       });
 
+      // ── Overlay helpers — shared logic for /api/overlay-data and /api/overlay-stream ──
+      type OverlayGoalRow = {
+        id: number;
+        status: string;
+        description: string;
+        ongoing: boolean;
+        missions?: Array<{
+          idx: number;
+          phase: string;
+          description: string;
+          quantity: number;
+          completedQty: number;
+          isPublished: boolean;
+        }>;
+      };
+
+      function buildOverlayMissions(
+        subs: ReturnType<typeof getOverlaySubscriptions>,
+        allGoals: OverlayGoalRow[],
+      ) {
+        return subs.map((sub) => {
+          const goal = allGoals.find((g) => g.id === sub.goalId);
+          if (!goal) return null;
+          const mission = (goal.missions ?? []).find((m) => m.idx === sub.missionIdx);
+          if (!mission) return null;
+          return {
+            goalId: goal.id,
+            goalDescription: goal.description,
+            goalStatus: goal.status,
+            missionIdx: mission.idx,
+            phase: mission.phase,
+            description: mission.description,
+            quantity: mission.quantity,
+            completedQty: mission.completedQty,
+            progressPct: mission.quantity > 0
+              ? Math.min(100, Math.round((mission.completedQty / mission.quantity) * 100))
+              : 0,
+            isPublished: mission.isPublished,
+          };
+        }).filter(Boolean);
+      }
+
+      function buildOverlayAlerts(allGoals: OverlayGoalRow[]) {
+        const alerts: Array<{ type: string; message: string; severity: string }> = [];
+        for (const goal of allGoals) {
+          if (goal.status !== "published") continue;
+          const pubMissions = (goal.missions ?? []).filter((m) => m.isPublished);
+          if (pubMissions.length === 0) continue;
+          const totalQty = pubMissions.reduce((s, m) => s + m.quantity, 0);
+          const doneQty = pubMissions.reduce((s, m) => s + m.completedQty, 0);
+          const pct = totalQty > 0 ? (doneQty / totalQty) * 100 : 0;
+          if (pct >= 90 && pct < 100) {
+            alerts.push({ type: "goal_near_complete", message: `Goal "${goal.description}" is ${Math.round(pct)}% complete`, severity: "info" });
+          }
+          if (pct >= 100 && !goal.ongoing) {
+            alerts.push({ type: "goal_complete", message: `Goal "${goal.description}" is ready to complete`, severity: "success" });
+          }
+        }
+        return alerts;
+      }
+
       // ── Overlay data — combines subscribed missions + system alerts ──
       server.middlewares.use("/api/overlay-data", (req, res) => {
         res.setHeader("Content-Type", "application/json");
@@ -2478,47 +2539,10 @@ function tribeApiPlugin(tenantId: string): Plugin {
         }
 
         const subs = getOverlaySubscriptions(wallet, ssuId, tribeId);
-        const allGoals = getGoals(ssuId, tribeId);
+        const allGoals = getGoals(ssuId, tribeId) as unknown as OverlayGoalRow[];
         const settings = getOverlaySettings(wallet);
-
-        // Build subscribed mission cards
-        const missions = subs.map((sub) => {
-          const goal = allGoals.find((g: { id: number }) => g.id === sub.goalId);
-          if (!goal) return null;
-          const rawMissions: Array<{ idx: number; phase: string; description: string; quantity: number; completedQty: number; isPublished: boolean }> = (goal as { missions?: Array<{ idx: number; phase: string; description: string; quantity: number; completedQty: number; isPublished: boolean }> }).missions ?? [];
-          const mission = rawMissions.find((m) => m.idx === sub.missionIdx);
-          if (!mission) return null;
-          return {
-            goalId: goal.id,
-            goalDescription: (goal as { description: string }).description,
-            goalStatus: (goal as { status: string }).status,
-            missionIdx: mission.idx,
-            phase: mission.phase,
-            description: mission.description,
-            quantity: mission.quantity,
-            completedQty: mission.completedQty,
-            progressPct: mission.quantity > 0 ? Math.min(100, Math.round((mission.completedQty / mission.quantity) * 100)) : 0,
-            isPublished: mission.isPublished,
-          };
-        }).filter(Boolean);
-
-        // Build alerts — highlight goals nearing completion or needing attention
-        const alerts: Array<{ type: string; message: string; severity: string }> = [];
-        for (const goal of allGoals) {
-          const g = goal as { id: number; status: string; description: string; ongoing: boolean; missions?: Array<{ isPublished: boolean; quantity: number; completedQty: number }> };
-          if (g.status !== "published") continue;
-          const pubMissions = (g.missions ?? []).filter((m) => m.isPublished);
-          if (pubMissions.length === 0) continue;
-          const totalQty = pubMissions.reduce((s: number, m: { quantity: number }) => s + m.quantity, 0);
-          const doneQty = pubMissions.reduce((s: number, m: { completedQty: number }) => s + m.completedQty, 0);
-          const pct = totalQty > 0 ? (doneQty / totalQty) * 100 : 0;
-          if (pct >= 90 && pct < 100) {
-            alerts.push({ type: "goal_near_complete", message: `Goal "${g.description}" is ${Math.round(pct)}% complete`, severity: "info" });
-          }
-          if (pct >= 100 && !g.ongoing) {
-            alerts.push({ type: "goal_complete", message: `Goal "${g.description}" is ready to complete`, severity: "success" });
-          }
-        }
+        const missions = buildOverlayMissions(subs, allGoals);
+        const alerts = buildOverlayAlerts(allGoals);
 
         res.end(JSON.stringify({ missions, alerts, settings, timestamp: Date.now() }));
       });
@@ -2548,46 +2572,10 @@ function tribeApiPlugin(tenantId: string): Plugin {
         const sendData = () => {
           try {
             const subs = getOverlaySubscriptions(wallet, ssuId, tribeId);
-            const allGoals = getGoals(ssuId, tribeId);
+            const allGoals = getGoals(ssuId, tribeId) as unknown as OverlayGoalRow[];
             const settings = getOverlaySettings(wallet);
-
-            const missions = subs.map((sub) => {
-              const goal = allGoals.find((g: { id: number }) => g.id === sub.goalId);
-              if (!goal) return null;
-              const rawMissions: Array<{ idx: number; phase: string; description: string; quantity: number; completedQty: number; isPublished: boolean }> = (goal as { missions?: Array<{ idx: number; phase: string; description: string; quantity: number; completedQty: number; isPublished: boolean }> }).missions ?? [];
-              const mission = rawMissions.find((m) => m.idx === sub.missionIdx);
-              if (!mission) return null;
-              return {
-                goalId: (goal as { id: number }).id,
-                goalDescription: (goal as { description: string }).description,
-                goalStatus: (goal as { status: string }).status,
-                missionIdx: mission.idx,
-                phase: mission.phase,
-                description: mission.description,
-                quantity: mission.quantity,
-                completedQty: mission.completedQty,
-                progressPct: mission.quantity > 0 ? Math.min(100, Math.round((mission.completedQty / mission.quantity) * 100)) : 0,
-                isPublished: mission.isPublished,
-              };
-            }).filter(Boolean);
-
-            const alerts: Array<{ type: string; message: string; severity: string }> = [];
-            for (const goal of allGoals) {
-              const g = goal as { id: number; status: string; description: string; ongoing: boolean; missions?: Array<{ isPublished: boolean; quantity: number; completedQty: number }> };
-              if (g.status !== "published") continue;
-              const pubMissions = (g.missions ?? []).filter((m) => m.isPublished);
-              if (pubMissions.length === 0) continue;
-              const totalQty = pubMissions.reduce((s: number, m: { quantity: number }) => s + m.quantity, 0);
-              const doneQty = pubMissions.reduce((s: number, m: { completedQty: number }) => s + m.completedQty, 0);
-              const pct = totalQty > 0 ? (doneQty / totalQty) * 100 : 0;
-              if (pct >= 90 && pct < 100) {
-                alerts.push({ type: "goal_near_complete", message: `Goal "${g.description}" is ${Math.round(pct)}% complete`, severity: "info" });
-              }
-              if (pct >= 100 && !g.ongoing) {
-                alerts.push({ type: "goal_complete", message: `Goal "${g.description}" is ready to complete`, severity: "success" });
-              }
-            }
-
+            const missions = buildOverlayMissions(subs, allGoals);
+            const alerts = buildOverlayAlerts(allGoals);
             const payload = JSON.stringify({ missions, alerts, settings, timestamp: Date.now() });
             res.write(`data: ${payload}\n\n`);
           } catch {
